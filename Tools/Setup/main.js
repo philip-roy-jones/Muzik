@@ -1,6 +1,6 @@
-import * as validator from './validator.js';
+import * as validator from './modules/validator.js';
 import { MongoClient } from 'mongodb';
-import { ensureCollection } from './ensure-collection.js';
+import { ensureCollection } from './modules/ensure-collection.js';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: '../../.env' });

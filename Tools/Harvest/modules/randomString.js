@@ -6,7 +6,7 @@ function randomString(minLength = 1, maxLength = 15) {
             asciiChars.push(String.fromCharCode(i));
         }
     }
-
+    console.log(asciiChars);
     // Generate a random length between minLength and maxLength
     const length = Math.floor(Math.random() * (maxLength - minLength + 1)) + minLength;
 
@@ -18,5 +18,7 @@ function randomString(minLength = 1, maxLength = 15) {
 
     return result.trim();
 }
+
+randomString(1,10);
 
 export default randomString;
