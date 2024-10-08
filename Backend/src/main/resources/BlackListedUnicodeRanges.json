@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Logo-syllabic",
+    "ranges": [
+      ["0x3400", "0x4DBF"],
+      ["0x2E000", "2EFFF"],
+      ["0x30000", "3FFFF"],
+      ["0xE0000", "0xEFFFF"]
+    ]
+  },
+  {
+
+  }
+]
