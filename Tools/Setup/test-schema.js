@@ -61,6 +61,22 @@ schema ={
         "time_signature": 4,
         "expires_at": "2025-01-01T00:00:00Z"
     },
+    "users": {
+        "_id": "g87430985709gh8374",
+        "username": "user1",
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "test@iamthemuzik.com",
+        "password": "dsf9843h9v7834g45398",
+        "connections": {
+            "spotify": {
+                "refreshToken": "fj43298rf423j98h",
+                "lastTokenRefresh": "2024-09-01T00:00:00Z"
+            }
+        },
+        "created_at": "2024-09-01T00:00:00Z",
+        "updated_at": "2024-09-01T00:00:00Z"
+    },
     "popularity": {
         "spotify:track:1": {
             "2024-09-01": 75,

@@ -1,70 +1,97 @@
 package xyz.philipjones.muzik.models;
 
-import org.jasypt.util.text.BasicTextEncryptor;
-
-import org.springframework.beans.factory.annotation.Value;
+import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
+import java.util.HashMap;
 
 @Document(collection = "users")
 public class User {
     @Id
-    private String id;
-    private String spotifyUserId;
-    private String accessToken;
-    private String refreshToken;
-    private Date expiresAt;
+    private ObjectId id;
+
+    private String username;
+
+    private String firstName;
+
+    private String lastName;
+
+    private String email;
+
+    private String password;  // Store hashed password
+
     private Date createdAt;
+
     private Date updatedAt;
-    private String displayName;
 
-    @Value("${JASYPT_PASSWORD}")
-    private String encryptionPassword;
+    private HashMap<String, HashMap<String, Object>> connections;
 
-    public String getId() {
+    // Constructors, getters, setters
+    public User() {
+        this.createdAt = new Date();
+        this.updatedAt = new Date();
+        this.connections = new HashMap<String, HashMap<String, Object>>();
+    }
+
+    public User(String username, String firstName, String lastName, String email, String password) {
+        this.username = username;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.password = password;
+        this.createdAt = new Date();
+        this.updatedAt = new Date();
+        this.connections = new HashMap<String, HashMap<String, Object>>();
+    }
+
+    public ObjectId getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(ObjectId id) {
         this.id = id;
     }
 
-    public String getSpotifyUserId() {
-        return spotifyUserId;
+    public String getUsername() {
+        return username;
     }
 
-    public void setSpotifyUserId(String spotifyUserId) {
-        this.spotifyUserId = spotifyUserId;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
-    public String getAccessToken() {
-        return accessToken;
+    public String getFirstName() {
+        return firstName;
     }
 
-    public void setAccessToken(String accessToken) {
-        BasicTextEncryptor textEncryptor = new BasicTextEncryptor();
-        textEncryptor.setPassword(encryptionPassword);
-        this.accessToken = textEncryptor.encrypt(accessToken);
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
     }
 
-    public String getRefreshToken() {
-        return refreshToken;
+    public String getLastName() {
+        return lastName;
     }
 
-    public void setRefreshToken(String refreshToken) {
-        BasicTextEncryptor textEncryptor = new BasicTextEncryptor();
-        textEncryptor.setPassword(encryptionPassword);
-        this.refreshToken = textEncryptor.encrypt(refreshToken);
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 
-    public Date getExpiresAt() {
-        return expiresAt;
+    public String getEmail() {
+        return email;
     }
 
-    public void setExpiresAt(Date expiresAt) {
-        this.expiresAt = expiresAt;
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public Date getCreatedAt() {
@@ -83,11 +110,15 @@ public class User {
         this.updatedAt = updatedAt;
     }
 
-    public String getDisplayName() {
-        return displayName;
+    public HashMap<String, HashMap<String, Object>> getConnections() {
+        return connections;
     }
 
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
+    public void addConnection(String key, HashMap value) {
+        this.connections.put(key, value);
+    }
+
+    public void removeConnection(String key) {
+        this.connections.remove(key);
     }
 }
