@@ -1,15 +1,13 @@
-package xyz.philipjones.muzik.services;
+package xyz.philipjones.muzik.services.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import xyz.philipjones.muzik.models.User;
+import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.repositories.UserRepository;
 import xyz.philipjones.muzik.security.CustomUserDetails;
-
-import java.util.ArrayList;
 
 
 // I am forced to implement the UserDetailsService interface in order to use the AuthenticationManager

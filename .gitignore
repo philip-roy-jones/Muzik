@@ -27,3 +27,4 @@ replay_pid*
 Ideas.txt
 node_modules
 utf8PercentEncodingData.json
+secret.key

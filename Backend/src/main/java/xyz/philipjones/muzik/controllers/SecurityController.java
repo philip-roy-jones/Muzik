@@ -7,27 +7,31 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.*;
-import xyz.philipjones.muzik.models.LoginRequest;
-import xyz.philipjones.muzik.models.RegistrationRequest;
-import xyz.philipjones.muzik.models.User;
-import xyz.philipjones.muzik.services.AccessTokenService;
-import xyz.philipjones.muzik.services.UserService;
+import xyz.philipjones.muzik.models.security.LoginRequest;
+import xyz.philipjones.muzik.models.security.RegistrationRequest;
+import xyz.philipjones.muzik.models.security.User;
+import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
+import xyz.philipjones.muzik.services.security.ServerRefreshTokenService;
+import xyz.philipjones.muzik.services.security.UserService;
 
 import java.util.Date;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/public")
-public class AuthController {
+public class SecurityController {
 
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
-    private final AccessTokenService accessTokenService;
+    private final ServerAccessTokenService serverAccessTokenService;
+    private final ServerRefreshTokenService serverRefreshTokenService;
 
     @Autowired
-    public AuthController(AuthenticationManager authenticationManager, UserService userService, AccessTokenService accessTokenService) {
+    public SecurityController(AuthenticationManager authenticationManager, UserService userService, ServerAccessTokenService serverAccessTokenService, ServerRefreshTokenService serverRefreshTokenService) {
         this.authenticationManager = authenticationManager;
         this.userService = userService;
-        this.accessTokenService = accessTokenService;
+        this.serverAccessTokenService = serverAccessTokenService;
+        this.serverRefreshTokenService = serverRefreshTokenService;
     }
 
     @PostMapping("/register")
@@ -53,15 +57,24 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<HashMap> login(@RequestBody LoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
             );
-            String token = accessTokenService.generateToken(authentication);
-            return ResponseEntity.ok(token);
+
+            String accessToken = serverAccessTokenService.generateToken(authentication);
+            String refreshToken = serverRefreshTokenService.createRefreshToken(authentication, loginRequest.isRememberMe());
+
+            HashMap<String, String> response = new HashMap<>();
+            response.put("accessToken", accessToken);
+            response.put("refreshToken", refreshToken);
+
+            return ResponseEntity.ok(response);
         } catch (AuthenticationException e) {
-            return ResponseEntity.status(401).body("Invalid login credentials");
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Invalid login credentials");
+            return ResponseEntity.status(401).body(errorResponse);
         }
     }
 }

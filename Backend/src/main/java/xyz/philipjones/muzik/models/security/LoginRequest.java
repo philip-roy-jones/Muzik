@@ -1,13 +1,15 @@
-package xyz.philipjones.muzik.models;
+package xyz.philipjones.muzik.models.security;
 
 public class LoginRequest {
     private String username;
     private String password;
+    private boolean rememberMe;
 
     // Constructor
-    public LoginRequest(String username, String password) {
+    public LoginRequest(String username, String password, boolean rememberMe) {
         this.username = username;
         this.password = password;
+        this.rememberMe = rememberMe;
     }
 
     // Getters and Setters
@@ -25,6 +27,14 @@ public class LoginRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public boolean isRememberMe() {
+        return rememberMe;
+    }
+
+    public void setRememberMe(boolean rememberMe) {
+        this.rememberMe = rememberMe;
     }
 }
 

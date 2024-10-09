@@ -1,9 +1,9 @@
-package xyz.philipjones.muzik.services;
+package xyz.philipjones.muzik.services.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import xyz.philipjones.muzik.models.User;
+import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.repositories.UserRepository;
 
 import java.util.Optional;

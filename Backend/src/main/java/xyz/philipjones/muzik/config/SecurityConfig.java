@@ -1,4 +1,4 @@
-package xyz.philipjones.muzik.security;
+package xyz.philipjones.muzik.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import xyz.philipjones.muzik.repositories.UserRepository;
+import xyz.philipjones.muzik.security.JwtAuthenticationFilter;
 import xyz.philipjones.muzik.services.security.CustomUserDetailsService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 

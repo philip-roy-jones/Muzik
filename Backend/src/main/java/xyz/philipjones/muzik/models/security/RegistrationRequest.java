@@ -1,4 +1,4 @@
-package xyz.philipjones.muzik.models;
+package xyz.philipjones.muzik.models.security;
 
 public class RegistrationRequest {
     private String username;

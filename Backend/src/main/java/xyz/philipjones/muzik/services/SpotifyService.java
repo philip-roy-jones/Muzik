@@ -21,10 +21,10 @@ import java.util.HashMap;
 @Service
 public class SpotifyService {
 
-    @Value("${spotify.client.id}")
+    @Value("${spring.security.oauth2.client.registration.spotify.client-id}")
     private String clientId;
 
-    @Value("${spotify.redirect.uri}")
+    @Value("${spring.security.oauth2.client.registration.spotify.redirect-uri}")
     private String redirectUri;
 
     private final String codeVerifier = PKCEUtil.generateCodeVerifier(128);
