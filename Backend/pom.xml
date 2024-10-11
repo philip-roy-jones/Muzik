@@ -30,6 +30,7 @@
         <java.version>23</java.version>
     </properties>
     <dependencies>
+
         <!--JSON Web Token-->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -80,7 +81,7 @@
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>        <!-- Reads JSON file and converts to Java object -->
-            <artifactId>gson</artifactId>                  <!-- I think we don't use this anymore, need to check -->
+            <artifactId>gson</artifactId>                  <!-- For reading the unicode ranges -->
             <version>2.11.0</version>
         </dependency>
 

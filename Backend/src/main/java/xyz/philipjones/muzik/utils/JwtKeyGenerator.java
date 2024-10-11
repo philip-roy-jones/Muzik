@@ -7,7 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.Key;
 
-public class KeyGenerator {
+public class JwtKeyGenerator {
     public static void main(String[] args) throws IOException {
         Key key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
         try (FileOutputStream fos = new FileOutputStream("secret.key")) {

@@ -3,6 +3,7 @@ package xyz.philipjones.muzik.models.security;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.util.Date;
 
 @Document(collection = "refresh_tokens")
@@ -12,11 +13,14 @@ public class ServerRefreshToken {
     private ObjectId id;
     private String token;
     private String username;
+    private String accessJti;
     private Date issuedDate;
     private Date expiryDate;
     private ObjectId userId;
 
     // Getters and setters
+    // DO NOT ENCRYPT/DECRYPT AT THE MODEL LEVEL
+    // THIS WILL CAUSE REFLECTION ISSUES
 
     public ObjectId getId() {
         return id;
@@ -60,5 +64,13 @@ public class ServerRefreshToken {
 
     public void setIssuedDate(Date issuedDate) {
         this.issuedDate = issuedDate;
+    }
+
+    public String getAccessJti() {
+        return accessJti;
+    }
+
+    public void setAccessJti(String accessToken) {
+        this.accessJti = accessToken;
     }
 }

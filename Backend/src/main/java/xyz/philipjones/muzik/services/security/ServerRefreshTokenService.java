@@ -1,17 +1,19 @@
 package xyz.philipjones.muzik.services.security;
 
-import org.bson.types.ObjectId;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.ServerRefreshToken;
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.repositories.ServerRefreshTokenRepository;
 import xyz.philipjones.muzik.repositories.UserRepository;
+import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
+import java.security.Key;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,22 +30,26 @@ public class ServerRefreshTokenService {
     private final ServerRefreshTokenRepository serverRefreshTokenRepository;
     private final UserRepository userRepository;
     private final StringEncryptor stringEncryptor;
+    private final Key key;
 
-    @Autowired                                                                                                                  // I have no clue why there are two StringEncryptor beans
-    public ServerRefreshTokenService(ServerRefreshTokenRepository serverRefreshTokenRepository, UserRepository userRepository, @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
+    @Autowired
+    public ServerRefreshTokenService(ServerRefreshTokenRepository serverRefreshTokenRepository,
+                                     UserRepository userRepository,
+                                     @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
+                                     JwtKeyProvider jwtKeyProvider) {
         this.serverRefreshTokenRepository = serverRefreshTokenRepository;
         this.userRepository = userRepository;
         this.stringEncryptor = stringEncryptor;
+        this.key = jwtKeyProvider.getKey();
     }
 
-    public String createRefreshToken(Authentication authentication, boolean isRememberMe) {
-        String username = authentication.getName();
-        String token = UUID.randomUUID().toString();
+    public ServerRefreshToken generateRefreshToken(String username, boolean isRememberMe, String accessToken) {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
 
         ServerRefreshToken refreshToken = new ServerRefreshToken();
-        refreshToken.setToken(stringEncryptor.encrypt(token));
+        refreshToken.setToken(stringEncryptor.encrypt(UUID.randomUUID().toString()));
         refreshToken.setUsername(username);
+        refreshToken.setAccessJti(stringEncryptor.encrypt(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getId()));
         refreshToken.setUserId(user.getId());
         refreshToken.setIssuedDate(new Date());
 
@@ -55,23 +61,17 @@ public class ServerRefreshTokenService {
 
         serverRefreshTokenRepository.save(refreshToken);
 
-        return token;
+        return refreshToken;
     }
 
-    public Optional<ServerRefreshToken> findByToken(String token) {
-        return serverRefreshTokenRepository.findByToken(token);
-    }
-
+    // True if the token is valid, false otherwise
     public boolean validateRefreshToken(String token) {
-        Optional<ServerRefreshToken> refreshTokenOpt = serverRefreshTokenRepository.findByToken(token);
+        Optional<ServerRefreshToken> refreshTokenOpt = serverRefreshTokenRepository.findByToken(stringEncryptor.encrypt(token));
+
         if (refreshTokenOpt.isPresent()) {
             ServerRefreshToken refreshToken = refreshTokenOpt.get();
-            return refreshToken.getExpiryDate().after(new Date());
+            return refreshToken.getExpiryDate().after(new Date()) && refreshToken.getIssuedDate().before(new Date());
         }
         return false;
-    }
-
-    public void deleteRefreshToken(String token) {
-        serverRefreshTokenRepository.deleteByToken(token);
     }
 }
