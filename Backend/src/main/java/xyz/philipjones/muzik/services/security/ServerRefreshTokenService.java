@@ -74,4 +74,26 @@ public class ServerRefreshTokenService {
         return false;
         // TODO: We need to see what happens when the token is expired or not found
     }
+
+    public String getRefreshToken(ServerRefreshToken refreshToken) {
+        return stringEncryptor.decrypt(refreshToken.getToken());
+    }
+
+    public String encryptRefreshToken(String refreshToken) {
+        return stringEncryptor.encrypt(refreshToken);
+    }
+
+    public ServerRefreshToken findByToken(String refreshToken) {
+        return serverRefreshTokenRepository.findByToken(refreshToken).orElseThrow(() -> new RuntimeException("Refresh token not found"));
+    }
+
+    public boolean saveRefreshToken(ServerRefreshToken refreshToken) {
+        try {
+            serverRefreshTokenRepository.save(refreshToken);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

@@ -1,12 +1,7 @@
 package xyz.philipjones.muzik.controllers;
 
-import io.jsonwebtoken.Jwts;
-import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.*;
@@ -14,13 +9,11 @@ import xyz.philipjones.muzik.models.security.LoginRequest;
 import xyz.philipjones.muzik.models.security.RegistrationRequest;
 import xyz.philipjones.muzik.models.security.ServerRefreshToken;
 import xyz.philipjones.muzik.models.security.User;
-import xyz.philipjones.muzik.repositories.ServerRefreshTokenRepository;
+import xyz.philipjones.muzik.services.security.AuthenticationService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 import xyz.philipjones.muzik.services.security.ServerRefreshTokenService;
 import xyz.philipjones.muzik.services.security.UserService;
-import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
-import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 
@@ -28,29 +21,18 @@ import java.util.HashMap;
 @RequestMapping("/public")
 public class SecurityController {
 
-    private final AuthenticationManager authenticationManager;
     private final UserService userService;
     private final ServerAccessTokenService serverAccessTokenService;
     private final ServerRefreshTokenService serverRefreshTokenService;
-    private final StringEncryptor stringEncryptor;
-    private final ServerRefreshTokenRepository serverRefreshTokenRepository;
-    private final Key key;
+    private final AuthenticationService authenticationService;
 
     @Autowired
-    public SecurityController(AuthenticationManager authenticationManager,
-                              UserService userService,
-                              ServerAccessTokenService serverAccessTokenService,
-                              ServerRefreshTokenService serverRefreshTokenService,
-                              @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
-                              ServerRefreshTokenRepository serverRefreshTokenRepository,
-                              JwtKeyProvider jwtKeyProvider) {
-        this.authenticationManager = authenticationManager;
+    public SecurityController(UserService userService, ServerAccessTokenService serverAccessTokenService,
+                              ServerRefreshTokenService serverRefreshTokenService, AuthenticationService authenticationService) {
         this.userService = userService;
         this.serverAccessTokenService = serverAccessTokenService;
         this.serverRefreshTokenService = serverRefreshTokenService;
-        this.stringEncryptor = stringEncryptor;
-        this.serverRefreshTokenRepository = serverRefreshTokenRepository;
-        this.key = jwtKeyProvider.getKey();
+        this.authenticationService = authenticationService;
     }
 
     @PostMapping("/register")
@@ -78,9 +60,7 @@ public class SecurityController {
     @PostMapping("/login")          // TODO: Move functionality to loginUser in UserService
     public ResponseEntity<HashMap> login(@RequestBody LoginRequest loginRequest) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
-            );
+            Authentication authentication = authenticationService.authenticate(loginRequest);
             if (!authentication.isAuthenticated()) {
                 HashMap<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("error", "Cannot authenticate user");
@@ -92,7 +72,7 @@ public class SecurityController {
 
             HashMap<String, String> response = new HashMap<>();
             response.put("accessToken", accessToken);
-            response.put("refreshToken", stringEncryptor.decrypt(refreshToken.getToken()));
+            response.put("refreshToken", serverRefreshTokenService.getRefreshToken(refreshToken));
 
             return ResponseEntity.ok(response);
         } catch (AuthenticationException e) {
@@ -117,15 +97,15 @@ public class SecurityController {
             return ResponseEntity.status(401).body(errorResponse);
         }
 
-        ServerRefreshToken refreshTokenObj = serverRefreshTokenRepository.findByToken(stringEncryptor.encrypt(refreshToken)).orElseThrow(() -> new RuntimeException("Refresh token not found"));
+        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
         String accessToken = serverAccessTokenService.generateAccessToken(refreshTokenObj.getUsername());
 
         // Blacklist old access token
         serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti());
 
         // Update jti in database
-        refreshTokenObj.setAccessJti(stringEncryptor.encrypt(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getId()));
-        serverRefreshTokenRepository.save(refreshTokenObj);
+        refreshTokenObj.setAccessJti(serverAccessTokenService.encryptJti(serverAccessTokenService.getClaimsFromToken(accessToken)));
+        serverRefreshTokenService.saveRefreshToken(refreshTokenObj);
 
         HashMap<String, String> response = new HashMap<>();
         response.put("accessToken", accessToken);

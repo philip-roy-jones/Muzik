@@ -1,6 +1,8 @@
 package xyz.philipjones.muzik.services.security;
 
+import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.User;
@@ -13,11 +15,13 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StringEncryptor stringEncryptor;
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.stringEncryptor = stringEncryptor;
     }
 
     public boolean registerUser(User user) {
@@ -34,11 +38,11 @@ public class UserService {
         }
     }
 
-    public User loginUser(String username, String password) {
-        Optional<User> userOptional = userRepository.findByUsername(username);
-        if (userOptional.isPresent() && passwordEncoder.matches(password, userOptional.get().getPassword())) {
-            return userOptional.get();
-        }
-        return null;
+    public Optional<User> getUserByUsername(String username) {
+        return userRepository.findByUsername(username);
+    }
+
+    public String getSpotifyRefreshToken(User user) {
+        return stringEncryptor.decrypt((String) user.getConnections().get("spotify").get("refreshToken"));
     }
 }

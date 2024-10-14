@@ -3,7 +3,9 @@ package xyz.philipjones.muzik.services.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -27,12 +29,15 @@ public class ServerAccessTokenService {
 
     private final Key key;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final StringEncryptor stringEncryptor;
 
     @Autowired
-    public ServerAccessTokenService(RedisTemplate<String, Object> redisTemplate, JwtKeyProvider jwtKeyProvider) {
+    public ServerAccessTokenService(RedisTemplate<String, Object> redisTemplate, JwtKeyProvider jwtKeyProvider,
+                                    @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
 
         this.redisTemplate = redisTemplate;
         this.key = jwtKeyProvider.getKey();
+        this.stringEncryptor = stringEncryptor;
     }
 
     public String generateAccessToken(String username) {
@@ -86,17 +91,21 @@ public class ServerAccessTokenService {
         }
     }
 
-    public Claims getClaimsFromToken(String token) {
+    public Claims getClaimsFromToken(String accessToken) {
         return Jwts.parser()
                 .setSigningKey(key)
                 .build()
-                .parseSignedClaims(token)
+                .parseSignedClaims(accessToken)
                 .getBody();
     }
 
-    public void blacklistAccessToken(String Jti) {
+    public void blacklistAccessToken(String encryptedJti) {
+        // Already encrypted jti are passed through to here, all we need to do is add to Redis
         // TODO: This could calculate the time until expiration and blacklist it for that long to reduce the amount of memory used
-        redisTemplate.opsForValue().set("serverAccessToken:blacklist:" + Jti, "blacklisted", accessTokenExpirationInMs, TimeUnit.MILLISECONDS);
+        redisTemplate.opsForValue().set("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", accessTokenExpirationInMs, TimeUnit.MILLISECONDS);
     }
 
+    public String encryptJti(Claims claims) {
+        return stringEncryptor.encrypt(claims.getId());
+    }
 }
