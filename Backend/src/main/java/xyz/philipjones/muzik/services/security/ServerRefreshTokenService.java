@@ -1,6 +1,5 @@
 package xyz.philipjones.muzik.services.security;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,5 +72,6 @@ public class ServerRefreshTokenService {
             return refreshToken.getExpiryDate().after(new Date()) && refreshToken.getIssuedDate().before(new Date());
         }
         return false;
+        // TODO: We need to see what happens when the token is expired or not found
     }
 }

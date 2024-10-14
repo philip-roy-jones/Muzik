@@ -3,14 +3,10 @@ package xyz.philipjones.muzik.services.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import xyz.philipjones.muzik.models.security.ServerRefreshToken;
-import xyz.philipjones.muzik.repositories.ServerRefreshTokenRepository;
 import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
 import java.security.Key;
@@ -23,28 +19,19 @@ public class ServerAccessTokenService {
     @Value("${access.token.expiration}")
     private long accessTokenExpirationInMs;
 
-    @Value("${server.address}")
+    @Value("${server.address}")             // TODO: See if we can remove this variable, don't want to have to go back and add this separately during deployment
     private String serverAddress;
 
     @Value("${server.port}")
     private String serverPort;
 
     private final Key key;
-    private final ServerRefreshTokenRepository serverRefreshTokenRepository;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final StringEncryptor stringEncryptor;
-    private final ServerRefreshTokenService serverRefreshTokenService;
 
     @Autowired
-    public ServerAccessTokenService(RedisTemplate<String, Object> redisTemplate, ServerRefreshTokenRepository serverRefreshTokenRepository,
-                                    @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,            // I have no clue why there are two StringEncryptor beans
-                                    ServerRefreshTokenService serverRefreshTokenService,
-                                    JwtKeyProvider jwtKeyProvider) {
+    public ServerAccessTokenService(RedisTemplate<String, Object> redisTemplate, JwtKeyProvider jwtKeyProvider) {
 
         this.redisTemplate = redisTemplate;
-        this.serverRefreshTokenRepository = serverRefreshTokenRepository;
-        this.stringEncryptor = stringEncryptor;
-        this.serverRefreshTokenService = serverRefreshTokenService;
         this.key = jwtKeyProvider.getKey();
     }
 
@@ -89,7 +76,7 @@ public class ServerAccessTokenService {
             }
 
             // Validating blacklist
-            if (Boolean.TRUE.equals(redisTemplate.hasKey("accessToken:blacklist:" + claims.getId()))) {
+            if (Boolean.TRUE.equals(redisTemplate.hasKey("serverAccessToken:blacklist:" + claims.getId()))) {
                 return false;
             }
 
@@ -109,7 +96,7 @@ public class ServerAccessTokenService {
 
     public void blacklistAccessToken(String Jti) {
         // TODO: This could calculate the time until expiration and blacklist it for that long to reduce the amount of memory used
-        redisTemplate.opsForValue().set("accessToken:blacklist:" + Jti, "blacklisted", accessTokenExpirationInMs, TimeUnit.MILLISECONDS);
+        redisTemplate.opsForValue().set("serverAccessToken:blacklist:" + Jti, "blacklisted", accessTokenExpirationInMs, TimeUnit.MILLISECONDS);
     }
 
 }

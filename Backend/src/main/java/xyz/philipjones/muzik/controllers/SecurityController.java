@@ -68,14 +68,14 @@ public class SecurityController {
             if (userService.registerUser(user)) {
                 return ResponseEntity.ok("Registration successful");
             } else {
-                return ResponseEntity.status(400).body("Invalid registration request");
+                return ResponseEntity.status(400).body("Username already exists");
             }
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error during registration");
         }
     }
 
-    @PostMapping("/login")
+    @PostMapping("/login")          // TODO: Move functionality to loginUser in UserService
     public ResponseEntity<HashMap> login(@RequestBody LoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -102,7 +102,7 @@ public class SecurityController {
         }
     }
 
-    @PostMapping("/refresh")
+    @PostMapping("/refresh")                // TODO: Move functionality to UserService
     public ResponseEntity<HashMap> refresh(@RequestBody HashMap<String, String> body) {
         String refreshToken = body.get("refreshToken");
         if (refreshToken == null) {

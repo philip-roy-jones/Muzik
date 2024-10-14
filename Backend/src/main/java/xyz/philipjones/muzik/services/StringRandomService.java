@@ -24,8 +24,8 @@ public class StringRandomService {
         List<String> randomRange = unicodeRangeService.generateRandomRange(unicodeGroup);
         int unicodeStart = Integer.parseInt(randomRange.get(0), 16);
         int unicodeEnd = Integer.parseInt(randomRange.get(1), 16);
-        System.out.println("Unicode Start:" + unicodeStart);
-        System.out.println("Unicode End:" + unicodeEnd);
+//        System.out.println("Unicode Start:" + unicodeStart);
+//        System.out.println("Unicode End:" + unicodeEnd);
         Random random = new Random();
         return (char) (random.nextInt(unicodeEnd - unicodeStart + 1) + unicodeStart);
     }
@@ -37,12 +37,12 @@ public class StringRandomService {
         int minLength = 32;
         int maxLength = 64;
         int length = random.nextInt(maxLength - minLength + 1) + minLength;
-        System.out.println("-----------------------------------");
+//        System.out.println("-----------------------------------");
         for (int i = 0; i < length; i++) {
             char randomChar = generateRandomCharacter();
             sb.append(randomChar);
         }
-        System.out.println("-----------------------------------");
+//        System.out.println("-----------------------------------");
         return sb.toString().trim();
     }
 }

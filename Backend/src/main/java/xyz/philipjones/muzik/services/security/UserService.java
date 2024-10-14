@@ -11,26 +11,30 @@ import java.util.Optional;
 @Service
 public class UserService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public boolean registerUser(User user) {
-        // Encrypt the password before saving
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            return false; // Username already exists
+        }
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         try {
-            boolean result = userRepository.save(user) != null;
-            System.out.println("Inner function call: " + result);
-            return result;
+            return userRepository.save(user) != null;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
 
-    public User signInUser(String username, String password) {
+    public User loginUser(String username, String password) {
         Optional<User> userOptional = userRepository.findByUsername(username);
         if (userOptional.isPresent() && passwordEncoder.matches(password, userOptional.get().getPassword())) {
             return userOptional.get();

@@ -71,7 +71,7 @@ schema ={
         "connections": {
             "spotify": {
                 "refreshToken": "fj43298rf423j98h",
-                "lastTokenRefresh": "2024-09-01T00:00:00Z"
+                "refreshTokenIssueDate": "2024-09-01T00:00:00Z"
             }
         },
         "created_at": "2024-09-01T00:00:00Z",
