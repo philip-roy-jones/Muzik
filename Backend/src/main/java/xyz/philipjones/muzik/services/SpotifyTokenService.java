@@ -1,8 +1,8 @@
 package xyz.philipjones.muzik.services;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import de.undercouch.bson4jackson.BsonModule;
 import org.bson.types.ObjectId;
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.User;
+import xyz.philipjones.muzik.config.ObjectIdDeserializer;
 import xyz.philipjones.muzik.repositories.UserRepository;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 import xyz.philipjones.muzik.utils.PKCEUtil;
@@ -23,7 +24,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Date;
-import java.util.concurrent.CompletableFuture;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -69,7 +69,6 @@ public class SpotifyTokenService {
     }
 
     public HashMap handleSpotifyCallback(String code, String receivedState) throws IOException {
-        // TODO: Needs abstraction
         HashMap<String, String> result = new HashMap<>();
 
         if (!receivedState.equals(this.state)) {
@@ -91,86 +90,89 @@ public class SpotifyTokenService {
             return result;
         }
 
-        final String tokenUrl = "https://accounts.spotify.com/api/token";
-
-        // Build POST request to get access token
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(tokenUrl))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(
-                        "grant_type=authorization_code" +
-                                "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8) +
-                                "&redirect_uri=" + URLEncoder.encode(this.redirectUri, StandardCharsets.UTF_8) +
-                                "&client_id=" + URLEncoder.encode(this.clientId, StandardCharsets.UTF_8) +
-                                "&code_verifier=" + URLEncoder.encode(this.codeVerifier, StandardCharsets.UTF_8)))
-                .build();
-
-        // Send request synchronously and return the response body as a HashMap
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response;
-        try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupted status
-            throw new IOException("Request interrupted", e);
-        }
-
-        // Handle response
-
-        HashMap responseBody = new ObjectMapper().readValue(response.body(), HashMap.class);
-        // Store refresh token in MongoDB
-        HashMap connection = new HashMap();
-        connection.put("refreshToken", stringEncryptor.encrypt(responseBody.get("refresh_token").toString()));
-        connection.put("issueDate", new Date());
-        System.out.println("Refresh Token: " + responseBody.get("refresh_token").toString());
-        user.addConnection("spotify", connection);
-        userRepository.save(user);
-
-        // Store access token in Redis
-        redisTemplate.opsForValue().set("spotifyAccessToken:" + user.getId(),
-                stringEncryptor.encrypt(responseBody.get("access_token").toString()),
-                Long.parseLong(responseBody.get("expires_in").toString()),
-                TimeUnit.SECONDS);
+        HashMap<String, Object> jsonResponse = tokenApiCall("authorization_code", code, "", codeVerifier, user);
+        tokenApiResponseHandler(jsonResponse);
 
         result.put("success", "Successfully connected Spotify account");
         return result;
     }
 
-    public HashMap refreshAccessToken(String serverRefreshToken, User user) throws IOException, JsonProcessingException, JsonMappingException {
+    public HashMap refreshAccessToken(String serverRefreshToken, User user) throws IOException {
         HashMap result = new HashMap();
 
-        // Build POST request to refresh access token
-        final String tokenUrl = "https://accounts.spotify.com/api/token";
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(tokenUrl))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(
-                        "grant_type=refresh_token" +
-                                "&refresh_token=" + URLEncoder.encode(serverRefreshToken, StandardCharsets.UTF_8) +
-                                "&client_id=" + URLEncoder.encode(this.clientId, StandardCharsets.UTF_8)))
-                .build();
-
-        // Send request to spotify
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response;
-        try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException | IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-
-        // Handle response
-        HashMap responseBody = new ObjectMapper().readValue(response.body(), HashMap.class);
-        user.getConnections().get("spotify").put("accessToken", stringEncryptor.encrypt(responseBody.get("refresh_token").toString()));
-        user.getConnections().get("spotify").put("issueDate", new Date());
-        System.out.println("Refreshed Refresh Token: " + responseBody.get("refresh_token").toString());
-        redisTemplate.opsForValue().set("spotifyAccessToken:" + user.getId(),
-                stringEncryptor.encrypt(responseBody.get("access_token").toString()),
-                Long.parseLong(responseBody.get("expires_in").toString()),
-                TimeUnit.SECONDS);
+        HashMap<String, Object> jsonResponse = tokenApiCall("refresh_token", "", serverRefreshToken, "", user);
+        tokenApiResponseHandler(jsonResponse);
 
         result.put("success", "Successfully refreshed Spotify access token");
         return result;
+    }
+
+    //---------------------------------------------Privates---------------------------------------------
+
+    private HashMap<String, Object> tokenApiCall(String grantType, String code, String refreshToken, String codeVerifier, User user) throws IOException {
+        final String tokenUrl = "https://accounts.spotify.com/api/token";
+
+        // Build POST request
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(tokenUrl))
+                .header("Content-Type", "application/x-www-form-urlencoded");
+
+        StringBuilder requestBody = new StringBuilder("grant_type=" + URLEncoder.encode(grantType, StandardCharsets.UTF_8));
+        if (grantType.equals("authorization_code")) {
+            requestBody.append("&code=").append(URLEncoder.encode(code, StandardCharsets.UTF_8))
+                    .append("&redirect_uri=").append(URLEncoder.encode(this.redirectUri, StandardCharsets.UTF_8))
+                    .append("&client_id=").append(URLEncoder.encode(this.clientId, StandardCharsets.UTF_8))
+                    .append("&code_verifier=").append(URLEncoder.encode(codeVerifier, StandardCharsets.UTF_8));
+        } else if (grantType.equals("refresh_token")) {
+            requestBody.append("&refresh_token=").append(URLEncoder.encode(refreshToken, StandardCharsets.UTF_8))
+                    .append("&client_id=").append(URLEncoder.encode(this.clientId, StandardCharsets.UTF_8));
+        }
+
+        HttpRequest request = requestBuilder.POST(HttpRequest.BodyPublishers.ofString(requestBody.toString())).build();
+
+        // Send request to Spotify
+        HttpClient client = HttpClient.newHttpClient();
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HashMap<String, Object> responseBody = new ObjectMapper().readValue(response.body(), HashMap.class);
+            responseBody.put("grant_type", grantType);
+            responseBody.put("user", user);
+            return responseBody;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupted status
+            throw new IOException("Request interrupted", e);
+        }
+    }
+
+    private void tokenApiResponseHandler(HashMap<String, Object> responseMap) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        // Register BsonModule and this project's serializer/deserializer to handle ObjectId in the User class
+        objectMapper.registerModule(new BsonModule());
+        objectMapper.registerModule(new SimpleModule().addDeserializer(ObjectId.class, new ObjectIdDeserializer())
+                .addDeserializer(ObjectId.class, new ObjectIdDeserializer()));
+
+        String grantType = (String) responseMap.get("grant_type");
+        String refreshToken = (String) responseMap.get("refresh_token");
+        String accessToken = (String) responseMap.get("access_token");
+        Integer expiresIn = (Integer) responseMap.get("expires_in");
+        User user = objectMapper.convertValue(responseMap.get("user"), User.class);
+
+        if (grantType.equals("refresh_token")) {
+            user.getConnections().get("spotify").put("accessToken", stringEncryptor.encrypt(refreshToken));
+            user.getConnections().get("spotify").put("issueDate", new Date());
+        } else if (grantType.equals("authorization_code")) {
+            HashMap<String, Object> connection = new HashMap<>();
+            connection.put("refreshToken", stringEncryptor.encrypt(refreshToken));
+            connection.put("issueDate", new Date());
+            user.addConnection("spotify", connection);
+            userRepository.save(user);
+        } else {
+            throw new IllegalArgumentException("Invalid grant type");
+        }
+
+        redisTemplate.opsForValue().set("spotifyAccessToken:" + user.getId(),
+                stringEncryptor.encrypt(accessToken),
+                expiresIn,
+                TimeUnit.SECONDS);
     }
 }

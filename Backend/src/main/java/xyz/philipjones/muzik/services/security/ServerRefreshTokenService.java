@@ -49,6 +49,7 @@ public class ServerRefreshTokenService {
         refreshToken.setToken(stringEncryptor.encrypt(UUID.randomUUID().toString()));
         refreshToken.setUsername(username);
         refreshToken.setAccessJti(stringEncryptor.encrypt(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getId()));
+        refreshToken.setAccessExpiryDate(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getExpiration());
         refreshToken.setUserId(user.getId());
         refreshToken.setIssuedDate(new Date());
 
@@ -72,7 +73,6 @@ public class ServerRefreshTokenService {
             return refreshToken.getExpiryDate().after(new Date()) && refreshToken.getIssuedDate().before(new Date());
         }
         return false;
-        // TODO: We need to see what happens when the token is expired or not found
     }
 
     public String getRefreshToken(ServerRefreshToken refreshToken) {

@@ -57,7 +57,7 @@ public class SecurityController {
         }
     }
 
-    @PostMapping("/login")          // TODO: Move functionality to loginUser in UserService
+    @PostMapping("/login")
     public ResponseEntity<HashMap> login(@RequestBody LoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationService.authenticate(loginRequest);
@@ -82,7 +82,7 @@ public class SecurityController {
         }
     }
 
-    @PostMapping("/refresh")                // TODO: Move functionality to UserService
+    @PostMapping("/refresh")
     public ResponseEntity<HashMap> refresh(@RequestBody HashMap<String, String> body) {
         String refreshToken = body.get("refreshToken");
         if (refreshToken == null) {
@@ -93,7 +93,7 @@ public class SecurityController {
 
         if (!serverRefreshTokenService.validateRefreshToken(refreshToken)) {
             HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Invalid refresh token");
+            errorResponse.put("error", "Invalid refresh token, please login again");
             return ResponseEntity.status(401).body(errorResponse);
         }
 
@@ -101,7 +101,7 @@ public class SecurityController {
         String accessToken = serverAccessTokenService.generateAccessToken(refreshTokenObj.getUsername());
 
         // Blacklist old access token
-        serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti());
+        serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
 
         // Update jti in database
         refreshTokenObj.setAccessJti(serverAccessTokenService.encryptJti(serverAccessTokenService.getClaimsFromToken(accessToken)));

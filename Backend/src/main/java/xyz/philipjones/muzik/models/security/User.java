@@ -1,9 +1,13 @@
 package xyz.philipjones.muzik.models.security;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import xyz.philipjones.muzik.config.ObjectIdDeserializer;
+import xyz.philipjones.muzik.config.ObjectIdSerializer;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -11,6 +15,8 @@ import java.util.HashMap;
 @Document(collection = "users")
 public class User {
     @Id
+    @JsonSerialize(using = ObjectIdSerializer.class)
+    @JsonDeserialize(using = ObjectIdDeserializer.class)
     private ObjectId id;
 
     @Indexed(unique = true)
@@ -22,7 +28,7 @@ public class User {
 
     private String email;
 
-    private String password;  // Store hashed password
+    private String password;  // Stores hashed passwords
 
     private Date createdAt;
 

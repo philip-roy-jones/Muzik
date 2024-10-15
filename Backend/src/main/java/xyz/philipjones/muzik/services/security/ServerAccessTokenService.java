@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
 import java.security.Key;
@@ -20,12 +21,6 @@ public class ServerAccessTokenService {
 
     @Value("${access.token.expiration}")
     private long accessTokenExpirationInMs;
-
-    @Value("${server.address}")             // TODO: See if we can remove this variable, don't want to have to go back and add this separately during deployment
-    private String serverAddress;
-
-    @Value("${server.port}")
-    private String serverPort;
 
     private final Key key;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -42,9 +37,9 @@ public class ServerAccessTokenService {
 
     public String generateAccessToken(String username) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("iss", "https://" + serverAddress + ":" + serverPort);
-        claims.put("sub", username);
-        claims.put("aud", "https://" + serverAddress + ":" + serverPort);          // TODO: We should tie it to a subdomain
+        claims.put("iss", ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString());  // Sets the issuer (iss) claim to the current server's URI
+        claims.put("sub", username);                                                                    // Cont.: this avoids hardcoding the server URI
+        claims.put("aud", ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString());
         claims.put("exp", new Date(System.currentTimeMillis() + accessTokenExpirationInMs));
         claims.put("nbf", new Date(System.currentTimeMillis()));
         claims.put("iat", new Date(System.currentTimeMillis()));
@@ -99,10 +94,9 @@ public class ServerAccessTokenService {
                 .getBody();
     }
 
-    public void blacklistAccessToken(String encryptedJti) {
-        // Already encrypted jti are passed through to here, all we need to do is add to Redis
-        // TODO: This could calculate the time until expiration and blacklist it for that long to reduce the amount of memory used
-        redisTemplate.opsForValue().set("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", accessTokenExpirationInMs, TimeUnit.MILLISECONDS);
+    public void blacklistAccessToken(String encryptedJti, Date expiration) {
+        // An ENCRYPTED jti is passed through, all we need to do is add to Redis
+        redisTemplate.opsForValue().set("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", expiration.getTime() - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
     }
 
     public String encryptJti(Claims claims) {

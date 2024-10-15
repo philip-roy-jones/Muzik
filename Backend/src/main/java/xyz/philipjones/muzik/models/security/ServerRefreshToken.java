@@ -14,6 +14,7 @@ public class ServerRefreshToken {
     private String token;
     private String username;
     private String accessJti;
+    private Date accessExpiryDate;
     private Date issuedDate;
     private Date expiryDate;
     private ObjectId userId;
@@ -72,5 +73,13 @@ public class ServerRefreshToken {
 
     public void setAccessJti(String accessToken) {
         this.accessJti = accessToken;
+    }
+
+    public Date getAccessExpiryDate() {
+        return accessExpiryDate;
+    }
+
+    public void setAccessExpiryDate(Date accessExpiryDate) {
+        this.accessExpiryDate = accessExpiryDate;
     }
 }
