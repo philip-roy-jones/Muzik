@@ -90,7 +90,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/public/**",
                                 "/error/**",                            // FOR DEBUG PURPOSES ONLY
-                                "/api/v1/spotify/callback"              // Spotify cannot redirect to callback with the access token
+                                "/api/v1/spotify/callback",             // Spotify cannot redirect to callback with the access token
+                                "/favicon.ico"
                         )
                         .permitAll()
                         .anyRequest().authenticated()
