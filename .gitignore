@@ -28,3 +28,4 @@ Ideas.txt
 node_modules
 utf8PercentEncodingData.json
 secret.key
+keystore.jks

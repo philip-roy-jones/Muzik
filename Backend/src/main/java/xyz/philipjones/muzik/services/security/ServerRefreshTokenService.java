@@ -96,4 +96,8 @@ public class ServerRefreshTokenService {
             return false;
         }
     }
+
+    public void deleteRefreshToken(ServerRefreshToken refreshToken) {
+        serverRefreshTokenRepository.delete(refreshToken);
+    }
 }

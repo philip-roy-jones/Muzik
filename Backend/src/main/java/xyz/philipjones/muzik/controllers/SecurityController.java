@@ -19,6 +19,7 @@ import java.util.HashMap;
 
 @RestController
 @RequestMapping("/public")
+@CrossOrigin(origins = "http://localhost:3000")
 public class SecurityController {
 
     private final UserService userService;
@@ -111,5 +112,24 @@ public class SecurityController {
         response.put("accessToken", accessToken);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@RequestBody HashMap<String, String> body) {
+        String refreshToken = body.get("refreshToken");
+
+        if (!serverRefreshTokenService.validateRefreshToken(refreshToken)) {
+            return ResponseEntity.status(401).body("Invalid refresh token, please login again");
+        }
+
+        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
+
+        // Blacklist access token
+        serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
+
+        // Remove refresh token from database
+        serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
+
+        return ResponseEntity.ok("Logout successful");
     }
 }
