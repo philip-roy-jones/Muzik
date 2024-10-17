@@ -7,14 +7,13 @@ import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import xyz.philipjones.muzik.services.RedisService;
 import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
 import java.security.Key;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class ServerAccessTokenService {
@@ -23,14 +22,14 @@ public class ServerAccessTokenService {
     private long accessTokenExpirationInMs;
 
     private final Key key;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisService redisService;
     private final StringEncryptor stringEncryptor;
 
     @Autowired
-    public ServerAccessTokenService(RedisTemplate<String, Object> redisTemplate, JwtKeyProvider jwtKeyProvider,
+    public ServerAccessTokenService(RedisService redisService, JwtKeyProvider jwtKeyProvider,
                                     @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
 
-        this.redisTemplate = redisTemplate;
+        this.redisService = redisService;
         this.key = jwtKeyProvider.getKey();
         this.stringEncryptor = stringEncryptor;
     }
@@ -76,7 +75,7 @@ public class ServerAccessTokenService {
             }
 
             // Validating blacklist
-            if (Boolean.TRUE.equals(redisTemplate.hasKey("serverAccessToken:blacklist:" + claims.getId()))) {
+            if (Boolean.TRUE.equals(redisService.hasKey("serverAccessToken:blacklist:" + claims.getId()))) {
                 return false;
             }
 
@@ -96,7 +95,7 @@ public class ServerAccessTokenService {
 
     public void blacklistAccessToken(String encryptedJti, Date expiration) {
         // An ENCRYPTED jti is passed through, all we need to do is add to Redis
-        redisTemplate.opsForValue().set("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", expiration.getTime() - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+        redisService.setValueWithExpiration("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", expiration.getTime() - System.currentTimeMillis());
     }
 
     public String encryptJti(Claims claims) {

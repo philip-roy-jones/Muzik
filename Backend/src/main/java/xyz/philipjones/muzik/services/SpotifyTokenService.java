@@ -8,12 +8,11 @@ import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.config.ObjectIdDeserializer;
-import xyz.philipjones.muzik.repositories.UserRepository;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
+import xyz.philipjones.muzik.services.security.UserService;
 import xyz.philipjones.muzik.utils.PKCEUtil;
 
 import java.io.IOException;
@@ -28,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class SpotifyTokenService {
@@ -42,28 +40,29 @@ public class SpotifyTokenService {
     private final String codeVerifier = PKCEUtil.generateCodeVerifier(128);
     private final String state = new BigInteger(130, new SecureRandom()).toString(32);
 
-    private final RedisTemplate<String, String> redisTemplate;
+    private final RedisService redisService;
     private final ServerAccessTokenService serverAccessTokenService;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final StringEncryptor stringEncryptor;
 
     @Autowired
-    public SpotifyTokenService(RedisTemplate<String, String> redisTemplate, ServerAccessTokenService serverAccessTokenService,
-                               UserRepository userRepository, @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
-        this.redisTemplate = redisTemplate;
+    public SpotifyTokenService(RedisService redisService, ServerAccessTokenService serverAccessTokenService,
+                               UserService userService,
+                               @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
+        this.redisService = redisService;
         this.serverAccessTokenService = serverAccessTokenService;
-        this.userRepository = userRepository;
+        this.userService = userService;
         this.stringEncryptor = stringEncryptor;
     }
 
     public String getAuthorizationUrl(String serverAccessToken) throws NoSuchAlgorithmException {
-        String userId = userRepository.findByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject())
+        String userId = userService.getUserByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject())
                 .map(user -> user.getId().toString()).orElseThrow(() -> new RuntimeException("User not found"));
 
         String scope = "user-read-private user-read-email playlist-read-collaborative";
         String codeChallenge = PKCEUtil.generateCodeChallenge(codeVerifier);
 
-        redisTemplate.opsForValue().set("spotifyState:" + this.state, userId, 10, TimeUnit.MINUTES);
+        redisService.setValueWithExpiration("spotifyState:" + this.state, userId, 600000);
 
         return "https://accounts.spotify.com/authorize" + "?response_type=code" + "&client_id=" + this.clientId + "&scope=" + URLEncoder.encode(scope, StandardCharsets.UTF_8) + "&redirect_uri=" + URLEncoder.encode(this.redirectUri, StandardCharsets.UTF_8) + "&state=" + this.state + "&code_challenge=" + codeChallenge + "&code_challenge_method=S256";
     }
@@ -75,16 +74,16 @@ public class SpotifyTokenService {
             result.put("error", "State mismatch");
         }
 
-        String storedStateStr = redisTemplate.opsForValue().get("spotifyState:" + receivedState); // Get the user ID from the state
+        String storedStateStr = redisService.getValue("spotifyState:" + receivedState); // Get the user ID from the state
         ObjectId storedState = storedStateStr != null ? new ObjectId(storedStateStr) : null; // Convert the user ID to an ObjectId
         if (storedState == null) {
             result.put("error", "State not found");
             return result;
         }
 
-        redisTemplate.delete("spotifyState:" + receivedState); // Delete the state from Redis since we have found it
+        redisService.deleteKey("spotifyState:" + receivedState); // Delete the state from Redis since we have found it
 
-        User user = userRepository.findById(storedState).orElse(null);
+        User user = userService.getUserById(storedState).orElse(null);
         if (user == null) {
             result.put("error", "User not found");
             return result;
@@ -97,14 +96,24 @@ public class SpotifyTokenService {
         return result;
     }
 
-    public HashMap refreshAccessToken(String serverRefreshToken, User user) throws IOException {
+    public HashMap refreshAccessToken(String spotifyRefreshToken, User user) throws IOException {
         HashMap result = new HashMap();
 
-        HashMap<String, Object> jsonResponse = tokenApiCall("refresh_token", "", serverRefreshToken, "", user);
+        HashMap<String, Object> jsonResponse = tokenApiCall("refresh_token", "", spotifyRefreshToken, "", user);
         tokenApiResponseHandler(jsonResponse);
 
         result.put("success", "Successfully refreshed Spotify access token");
         return result;
+    }
+
+    public void removeConnection(String serverAccessToken) {
+        User user = userService.getUserByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject()).orElse(null);
+
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+        userService.removeConnection(user, "spotify");          // Remove connection from MongoDB
+        redisService.deleteKey("spotifyAccessToken:" + user.getId());   // Remove spotify access token from Redis
     }
 
     //---------------------------------------------Privates---------------------------------------------
@@ -165,14 +174,12 @@ public class SpotifyTokenService {
             connection.put("refreshToken", stringEncryptor.encrypt(refreshToken));
             connection.put("issueDate", new Date());
             user.addConnection("spotify", connection);
-            userRepository.save(user);
+            userService.saveUser(user);
         } else {
             throw new IllegalArgumentException("Invalid grant type");
         }
 
-        redisTemplate.opsForValue().set("spotifyAccessToken:" + user.getId(),
-                stringEncryptor.encrypt(accessToken),
-                expiresIn,
-                TimeUnit.SECONDS);
+        redisService.setValueWithExpiration("spotifyAccessToken:" + user.getId(),
+                stringEncryptor.encrypt(accessToken), expiresIn * 1000);
     }
 }

@@ -31,6 +31,14 @@
     </properties>
     <dependencies>
 
+        <!-- Jakarta Servlet API dependency for servlet support -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>de.undercouch</groupId>
             <artifactId>bson4jackson</artifactId>

@@ -1,5 +1,6 @@
 package xyz.philipjones.muzik.services.security;
 
+import org.bson.types.ObjectId;
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -42,7 +43,20 @@ public class UserService {
         return userRepository.findByUsername(username);
     }
 
+    public Optional<User> getUserById(ObjectId id) {
+        return userRepository.findById(id);
+    }
+
+    public void saveUser(User user) {
+        userRepository.save(user);
+    }
+
     public String getSpotifyRefreshToken(User user) {
         return stringEncryptor.decrypt((String) user.getConnections().get("spotify").get("refreshToken"));
+    }
+
+    public void removeConnection(User user, String connection) {
+        user.getConnections().remove(connection);
+        userRepository.save(user);
     }
 }
