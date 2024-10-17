@@ -101,8 +101,10 @@ public class SecurityController {
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
         String accessToken = serverAccessTokenService.generateAccessToken(refreshTokenObj.getUsername());
 
-        // Blacklist old access token
-        serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
+        // Blacklist old access token if it hasn't expired
+        if (System.currentTimeMillis() < refreshTokenObj.getAccessExpiryDate().getTime()) {
+            serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
+        }
 
         // Update jti in database
         refreshTokenObj.setAccessJti(serverAccessTokenService.encryptJti(serverAccessTokenService.getClaimsFromToken(accessToken)));
@@ -124,8 +126,10 @@ public class SecurityController {
 
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
 
-        // Blacklist access token
-        serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
+        // Blacklist old access token if it hasn't expired
+        if (System.currentTimeMillis() < refreshTokenObj.getAccessExpiryDate().getTime()) {
+            serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
+        }
 
         // Remove refresh token from database
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);

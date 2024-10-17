@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.repositories.UserRepository;
 
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -52,11 +53,22 @@ public class UserService {
     }
 
     public String getSpotifyRefreshToken(User user) {
-        return stringEncryptor.decrypt((String) user.getConnections().get("spotify").get("refreshToken"));
+        Map<String, Object> spotifyConnection = getConnections(user, "spotify");
+        if (spotifyConnection == null) {
+            return null;
+        }
+
+        return stringEncryptor.decrypt((String) spotifyConnection.get("refreshToken"));
     }
 
     public void removeConnection(User user, String connection) {
         user.getConnections().remove(connection);
         userRepository.save(user);
+    }
+
+    //-----------------------------------------Private Methods-----------------------------------------
+
+    private Map<String, Object> getConnections(User user, String connectionName) {
+        return user.getConnections().get(connectionName);
     }
 }

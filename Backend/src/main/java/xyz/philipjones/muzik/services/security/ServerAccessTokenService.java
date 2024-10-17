@@ -95,6 +95,8 @@ public class ServerAccessTokenService {
 
     public void blacklistAccessToken(String encryptedJti, Date expiration) {
         // An ENCRYPTED jti is passed through, all we need to do is add to Redis
+        System.out.println("Expiration get time baby: " + expiration.getTime());
+        System.out.println("Current time: " + System.currentTimeMillis());
         redisService.setValueWithExpiration("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", expiration.getTime() - System.currentTimeMillis());
     }
 

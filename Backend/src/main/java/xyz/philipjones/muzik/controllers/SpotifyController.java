@@ -8,6 +8,7 @@ import xyz.philipjones.muzik.services.StringRandomService;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 @RestController
@@ -56,7 +57,21 @@ public class SpotifyController {
     @GetMapping("/random-track")
     public HashMap<String, Object> getRandomTrack(@RequestHeader("Authorization") String authorizationHeader) {
         String randomString = this.stringRandomService.generateRandomString();
-        HashMap spotifyResponse = spotifyService.search("runaway", "track", 50, "audio", authorizationHeader.substring("Bearer ".length()));
+        HashMap spotifyResponse = spotifyService.search(randomString, "track", 50, "audio", authorizationHeader.substring("Bearer ".length()));
+        // TODO: Choose a random track from the response and return it
+        HashMap tracks = (HashMap) spotifyResponse.get("tracks");
+        ArrayList items = (ArrayList) tracks.get("items");
+
+        Integer itemSize = items.size();
+        System.out.println("Item Size: " + itemSize);
+        Integer randomIndex = new java.util.Random().nextInt(items.size());
+        System.out.println("Random Index: " + randomIndex);
+        HashMap randomTrack = (HashMap) items.get(randomIndex);
+        System.out.println(randomTrack);
+        String trackId = (String) randomTrack.get("id");
+        System.out.println(trackId);
+        // TODO: Add that random track to the database
+
         return spotifyResponse;
     }
 

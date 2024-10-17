@@ -6,7 +6,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
 
-@Document(collection = "refresh_tokens")
+@Document(collection = "serverRefreshTokens")
 public class ServerRefreshToken {
 
     @Id

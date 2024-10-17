@@ -27,23 +27,22 @@ public class ServerRefreshTokenService {
     private long serverRefreshTokenExpirationMs;
 
     private final ServerRefreshTokenRepository serverRefreshTokenRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final StringEncryptor stringEncryptor;
     private final Key key;
 
     @Autowired
     public ServerRefreshTokenService(ServerRefreshTokenRepository serverRefreshTokenRepository,
-                                     UserRepository userRepository,
                                      @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
-                                     JwtKeyProvider jwtKeyProvider) {
+                                     JwtKeyProvider jwtKeyProvider, UserService userService) {
         this.serverRefreshTokenRepository = serverRefreshTokenRepository;
-        this.userRepository = userRepository;
         this.stringEncryptor = stringEncryptor;
         this.key = jwtKeyProvider.getKey();
+        this.userService = userService;
     }
 
     public ServerRefreshToken generateRefreshToken(String username, boolean isRememberMe, String accessToken) {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userService.getUserByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
 
         ServerRefreshToken refreshToken = new ServerRefreshToken();
         refreshToken.setToken(stringEncryptor.encrypt(UUID.randomUUID().toString()));
