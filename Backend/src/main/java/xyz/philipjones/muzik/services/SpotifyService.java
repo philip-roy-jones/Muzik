@@ -33,7 +33,7 @@ public class SpotifyService {
         this.redisService = redisService;
     }
 
-    public HashMap search(String query, String type, int limit, String includeExternal, String serverAccessToken) {
+    public HashMap search(String query, String type, int limit, int offset, String includeExternal, String serverAccessToken) {
         String userId = userRepository.findByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject())
                 .map(user -> user.getId().toString()).orElseThrow(() -> new RuntimeException("User not found"));
 

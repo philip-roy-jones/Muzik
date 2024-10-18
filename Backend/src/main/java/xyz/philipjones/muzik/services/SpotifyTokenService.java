@@ -159,25 +159,25 @@ public class SpotifyTokenService {
         objectMapper.registerModule(new BsonModule());
         objectMapper.registerModule(new SimpleModule().addDeserializer(ObjectId.class, new ObjectIdDeserializer())
                 .addDeserializer(ObjectId.class, new ObjectIdDeserializer()));
-
+        System.out.println(responseMap);
         String grantType = (String) responseMap.get("grant_type");
         String refreshToken = (String) responseMap.get("refresh_token");
         String accessToken = (String) responseMap.get("access_token");
         Integer expiresIn = (Integer) responseMap.get("expires_in");
         User user = objectMapper.convertValue(responseMap.get("user"), User.class);
 
-        if (grantType.equals("refresh_token")) {
-            user.getConnections().get("spotify").put("accessToken", stringEncryptor.encrypt(refreshToken));
+        if (grantType.equals("refresh_token") && refreshToken != null) {    // Spotify sometimes provides new refresh tokens
+            user.getConnections().get("spotify").put("refreshToken", stringEncryptor.encrypt(refreshToken));
             user.getConnections().get("spotify").put("issueDate", new Date());
         } else if (grantType.equals("authorization_code")) {
             HashMap<String, Object> connection = new HashMap<>();
             connection.put("refreshToken", stringEncryptor.encrypt(refreshToken));
             connection.put("issueDate", new Date());
             user.addConnection("spotify", connection);
-            userService.saveUser(user);
         } else {
             throw new IllegalArgumentException("Invalid grant type");
         }
+        userService.saveUser(user);
 
         redisService.setValueWithExpiration("spotifyAccessToken:" + user.getId(),
                 stringEncryptor.encrypt(accessToken), expiresIn * 1000);

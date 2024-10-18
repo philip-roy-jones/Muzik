@@ -1,26 +1,26 @@
 schema ={
-    "randomArtists": {
+    "artists": {
         "_id": "g87430985709gh8374",
         "spotifyId": "spotify:artist:1",
         "name": "artist1",
-        // "albums": ["spotify:album:1"]           // Not storing this as an artist can add albums in the future
-        "images": {
-
-        }
+        // "albums": ["spotify:album:1"]           // Not storing this as an artist can add albums in the future, this includes singles
+        // "images": {
+                                                    // Not storing images because it requires a separate api call, plus it could change often
+        // }
     },
-    "randomAlbums": {
+    "albums": {
         "_id": "66f9c144f64e490e9be228f9",
         "spotify_id": "spotify:album:1",
-        "type": "album",                            // album, single, compilation
+        "type": "album",
         "name": "album1",
-        // "artist_oids": ["h364n05987346hn5g03"],
-        "release_date": "2019",
-        "release_date_precision": "year",
-        "total_tracks": 2,
-        // "track_oids": [
-        //     "fdsf87h485239h20",
-        //     "dfs98h650984"
-        // ],
+        "artistOids": ["h364n05987346hn5g03"],
+        "releaseDate": "2019",
+        "releaseDatePrecision": "year",
+        "totalTracks": 4,
+        "trackOids": [
+            "fdsf87h485239h20",
+            "dfs98h650984"
+        ],
         "images": [
             {
             "url": "https://i.scdn.co/image/ab67616d0000b2731dacfbc31cc873d132958af9",
@@ -39,37 +39,16 @@ schema ={
             }
         ]
     },
-    "randomTracks":{
+    "tracks":{
         "_id": "g87430985709gh8374",
         "spotifyId": "spotify:track:1",
-        // "artist_oids": ["7n56bg904387564"],
-        "artistName": ["artist1", "artist2"],
-        "album_oid": "43h75n0934857340",
+        "artistOids": [
+            "fsdfdsfsdhfiukfeh",
+            "dslfijsdj8f93j"
+        ],
         "name": "track1",
         "explicit": false,
         "albumOid": "g87430985709gh8374"
-    },
-    // This only exists because tracks don't have images
-    "randomTrackAlbums":{
-        "_id": "g87430985709gh8374",
-        "spotifyId": "spotify:album:1",
-        "images": [
-            {
-              "url": "https://i.scdn.co/image/ab67616d0000b2736aa1a0eae5f023675b4e9818",
-              "height": 640,
-              "width": 640
-            },
-            {
-              "url": "https://i.scdn.co/image/ab67616d00001e026aa1a0eae5f023675b4e9818",
-              "height": 300,
-              "width": 300
-            },
-            {
-              "url": "https://i.scdn.co/image/ab67616d000048516aa1a0eae5f023675b4e9818",
-              "height": 64,
-              "width": 64
-            }
-          ],
     },
     "randomTrackFeatures":{
         "_id": "g87430985709gh8374",

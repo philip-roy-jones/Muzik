@@ -2,9 +2,11 @@ package xyz.philipjones.muzik.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.services.SpotifyService;
 import xyz.philipjones.muzik.services.SpotifyTokenService;
 import xyz.philipjones.muzik.services.StringRandomService;
+import xyz.philipjones.muzik.services.security.UserService;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -18,13 +20,15 @@ public class SpotifyController {
     private final StringRandomService stringRandomService;
     private final SpotifyTokenService spotifyTokenService;
     private final SpotifyService spotifyService;
+    private final UserService userService;
 
     @Autowired
     public SpotifyController(StringRandomService stringRandomService, SpotifyTokenService spotifyTokenService,
-                             SpotifyService spotifyService) {
+                             SpotifyService spotifyService, UserService userService) {
         this.stringRandomService = stringRandomService;
         this.spotifyTokenService = spotifyTokenService;
         this.spotifyService = spotifyService;
+        this.userService = userService;
     }
 
     // ----------------------------------------Auth Routes----------------------------------------
@@ -56,27 +60,51 @@ public class SpotifyController {
     // ----------------------------------------Spotify API Routes----------------------------------------
     @GetMapping("/random-track")
     public HashMap<String, Object> getRandomTrack(@RequestHeader("Authorization") String authorizationHeader) {
-        String randomString = this.stringRandomService.generateRandomString();
-        HashMap spotifyResponse = spotifyService.search(randomString, "track", 50, "audio", authorizationHeader.substring("Bearer ".length()));
-        // TODO: Choose a random track from the response and return it
+        String randomString = stringRandomService.generateRandomString();
+        int limit = 1;
+        int offset = 0;
+
+        HashMap spotifyResponse = spotifyService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
+
+//        TODO: This randomizes it even further by making a second request using same args,
+//          but using a random offset if the total results are greater than the limit.
+//          Cannot implement at this current moment due to performance issues.
+//        HashMap trackies = (HashMap) spotifyResponse.get("tracks");
+//        int totalResults = (Integer) trackies.get("total");
+//        System.out.println("Total Results: " + totalResults);
+//
+//        if (totalResults > limit) {
+//            offset = new java.util.Random().nextInt(totalResults - limit);
+//            System.out.println("Offset: " + offset);
+//            spotifyResponse = spotifyService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
+//        }
+
         HashMap tracks = (HashMap) spotifyResponse.get("tracks");
         ArrayList items = (ArrayList) tracks.get("items");
-
         Integer itemSize = items.size();
-        System.out.println("Item Size: " + itemSize);
-        Integer randomIndex = new java.util.Random().nextInt(items.size());
-        System.out.println("Random Index: " + randomIndex);
-        HashMap randomTrack = (HashMap) items.get(randomIndex);
+
+        while (itemSize == 0) {
+        // TODO: Record the random string that was used to search for the track for debug purposes
+            System.out.println("Item Size: " + itemSize);
+            randomString = stringRandomService.generateRandomString();
+            spotifyResponse = spotifyService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
+            tracks = (HashMap) spotifyResponse.get("tracks");
+            items = (ArrayList) tracks.get("items");
+            itemSize = items.size();
+        }
+
+        HashMap randomTrack = (HashMap) items.getFirst();
         System.out.println(randomTrack);
         String trackId = (String) randomTrack.get("id");
         System.out.println(trackId);
-        // TODO: Add that random track to the database
+        // TODO: Add that random track to the database asynchronously
 
         return spotifyResponse;
     }
 
     @GetMapping("/test")
-    public String test() {
-        return "Hello from the Spotify Controller!";
+    public String test(@RequestHeader("Authorization") String authorizationHeader) {
+
+        return "FUCK";
     }
 }
