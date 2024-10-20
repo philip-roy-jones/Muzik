@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.services.RedisService;
-import xyz.philipjones.muzik.services.SpotifyTokenService;
+import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 
 import jakarta.servlet.http.HttpServletRequest;

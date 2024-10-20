@@ -3,14 +3,14 @@ package xyz.philipjones.muzik.models;
 import java.util.List;
 
 
-// This class is a model for the UnicodeRange object
-// It is used to store the UnicodeRange object from the JSON file
-public class UnicodeRange {
+// This class is a model for the UnicodeScript object
+// It is used to store the UnicodeScript object from the JSON file
+public class UnicodeScript {
     private String name;
     private List<List<String>> ranges;
 
     // Default constructor
-    public UnicodeRange() {}
+    public UnicodeScript() {}
 
     // Only Getters because you will never need to set these values programatically
 

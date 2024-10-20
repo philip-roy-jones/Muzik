@@ -29,3 +29,4 @@ node_modules
 utf8PercentEncodingData.json
 secret.key
 keystore.jks
+/Tools/Test/results

@@ -1,10 +1,12 @@
-package xyz.philipjones.muzik.services;
+package xyz.philipjones.muzik.services.spotify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jasypt.encryption.StringEncryptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.repositories.UserRepository;
+import xyz.philipjones.muzik.services.RedisService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 
 import java.io.IOException;
@@ -18,15 +20,16 @@ import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-public class SpotifyService {
+public class SpotifyRequestService {
 
     private final UserRepository userRepository;
     private final ServerAccessTokenService serverAccessTokenService;
     private final StringEncryptor stringEncryptor;
     private final RedisService redisService;
 
-    public SpotifyService(UserRepository userRepository, ServerAccessTokenService serverAccessTokenService,
-                          @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor, RedisService redisService) {
+    @Autowired
+    public SpotifyRequestService(UserRepository userRepository, ServerAccessTokenService serverAccessTokenService,
+                                 @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor, RedisService redisService) {
         this.userRepository = userRepository;
         this.serverAccessTokenService = serverAccessTokenService;
         this.stringEncryptor = stringEncryptor;
@@ -36,7 +39,7 @@ public class SpotifyService {
     public HashMap search(String query, String type, int limit, int offset, String includeExternal, String serverAccessToken) {
         String userId = userRepository.findByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject())
                 .map(user -> user.getId().toString()).orElseThrow(() -> new RuntimeException("User not found"));
-
+        System.out.println("userId: " + userId);
         String spotifyAccessToken = stringEncryptor.decrypt(redisService.getValue("spotifyAccessToken:" + userId));
 
         // Build GET request to search for tracks

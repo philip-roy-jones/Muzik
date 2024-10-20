@@ -2,11 +2,12 @@ package xyz.philipjones.muzik.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import xyz.philipjones.muzik.models.security.User;
-import xyz.philipjones.muzik.services.SpotifyService;
-import xyz.philipjones.muzik.services.SpotifyTokenService;
-import xyz.philipjones.muzik.services.StringRandomService;
-import xyz.philipjones.muzik.services.security.UserService;
+import xyz.philipjones.muzik.models.UnicodeScript;
+import xyz.philipjones.muzik.services.RandomStringErrorService;
+import xyz.philipjones.muzik.services.UnicodeScriptService;
+import xyz.philipjones.muzik.services.spotify.SpotifyRequestService;
+import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
+import xyz.philipjones.muzik.services.RandomStringService;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -17,18 +18,22 @@ import java.util.HashMap;
 @RequestMapping("/api/v1/spotify")
 public class SpotifyController {
 
-    private final StringRandomService stringRandomService;
+    private final RandomStringService randomStringService;
     private final SpotifyTokenService spotifyTokenService;
-    private final SpotifyService spotifyService;
-    private final UserService userService;
+    private final SpotifyRequestService spotifyRequestService;
+    private final RandomStringErrorService randomStringErrorService;
+    private final UnicodeScriptService unicodeScriptService;
 
     @Autowired
-    public SpotifyController(StringRandomService stringRandomService, SpotifyTokenService spotifyTokenService,
-                             SpotifyService spotifyService, UserService userService) {
-        this.stringRandomService = stringRandomService;
+    public SpotifyController(RandomStringService randomStringService, SpotifyTokenService spotifyTokenService,
+                             SpotifyRequestService spotifyRequestService,
+                             RandomStringErrorService randomStringErrorService,
+                             UnicodeScriptService unicodeScriptService) {
+        this.randomStringService = randomStringService;
         this.spotifyTokenService = spotifyTokenService;
-        this.spotifyService = spotifyService;
-        this.userService = userService;
+        this.spotifyRequestService = spotifyRequestService;
+        this.randomStringErrorService = randomStringErrorService;
+        this.unicodeScriptService = unicodeScriptService;
     }
 
     // ----------------------------------------Auth Routes----------------------------------------
@@ -60,11 +65,14 @@ public class SpotifyController {
     // ----------------------------------------Spotify API Routes----------------------------------------
     @GetMapping("/random-track")
     public HashMap<String, Object> getRandomTrack(@RequestHeader("Authorization") String authorizationHeader) {
-        String randomString = stringRandomService.generateRandomString();
+        UnicodeScript unicodeScript = unicodeScriptService.generateRandomScript();
+
+        String randomString = randomStringService.generateRandomString(unicodeScript);
+        System.out.println("Random String: " + '|' + randomString + '|');
         int limit = 1;
         int offset = 0;
 
-        HashMap spotifyResponse = spotifyService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
+        HashMap spotifyResponse = spotifyRequestService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
 
 //        TODO: This randomizes it even further by making a second request using same args,
 //          but using a random offset if the total results are greater than the limit.
@@ -80,23 +88,30 @@ public class SpotifyController {
 //        }
 
         HashMap tracks = (HashMap) spotifyResponse.get("tracks");
+        int totalResults = (Integer) tracks.get("total");
         ArrayList items = (ArrayList) tracks.get("items");
-        Integer itemSize = items.size();
 
-        while (itemSize == 0) {
-        // TODO: Record the random string that was used to search for the track for debug purposes
-            System.out.println("Item Size: " + itemSize);
-            randomString = stringRandomService.generateRandomString();
-            spotifyResponse = spotifyService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
+        System.out.println("Total Results: " + totalResults);
+        while (totalResults == 0) {
+            randomStringErrorService.saveRandomStringError(randomString);
+
+            unicodeScript = unicodeScriptService.generateRandomScript();
+            randomString = randomStringService.generateRandomString(unicodeScript);
+            spotifyResponse = spotifyRequestService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
             tracks = (HashMap) spotifyResponse.get("tracks");
             items = (ArrayList) tracks.get("items");
-            itemSize = items.size();
+            totalResults = (Integer) tracks.get("total");
+
+            if(totalResults != 0) {
+                System.out.println("No Longer 0: " + '|' + randomString + '|');
+                System.out.println("New Results: " + totalResults);
+            }
         }
 
         HashMap randomTrack = (HashMap) items.getFirst();
-        System.out.println(randomTrack);
+//        System.out.println(randomTrack);
         String trackId = (String) randomTrack.get("id");
-        System.out.println(trackId);
+//        System.out.println(trackId);
         // TODO: Add that random track to the database asynchronously
 
         return spotifyResponse;
@@ -105,6 +120,6 @@ public class SpotifyController {
     @GetMapping("/test")
     public String test(@RequestHeader("Authorization") String authorizationHeader) {
 
-        return "FUCK";
+        return "hello world";
     }
 }

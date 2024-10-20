@@ -1,27 +1,32 @@
 package xyz.philipjones.muzik;
 
 import org.junit.jupiter.api.Test;
-import xyz.philipjones.muzik.services.StringRandomService;
-import xyz.philipjones.muzik.services.UnicodeRangeService;
+import xyz.philipjones.muzik.models.UnicodeScript;
+import xyz.philipjones.muzik.services.RandomStringService;
+import xyz.philipjones.muzik.services.UnicodeScriptService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestFile {
 
-    private UnicodeRangeService unicodeRangeService = new UnicodeRangeService();
-    private StringRandomService stringRandomService = new StringRandomService(unicodeRangeService);
+    private UnicodeScriptService unicodeScriptService = new UnicodeScriptService();
+    private RandomStringService randomStringService = new RandomStringService(unicodeScriptService);
 
 
     @Test
     void testGenerateRandomCharacter() {
-        char randomChar = stringRandomService.generateRandomCharacter();
-        System.out.println("Random Char:" + randomChar);
+        UnicodeScript unicodeScript = unicodeScriptService.generateRandomScript();
+
+        char randomChar = randomStringService.generateRandomCharacter(unicodeScript);
+//        System.out.println("Random Char:" + randomChar);
         assertTrue(Character.isDefined(randomChar));
     }
 
     @Test
     void testGenerateRandomString() {
-        String randomString = stringRandomService.generateRandomString();
+        UnicodeScript unicodeScript = unicodeScriptService.generateRandomScript();
+
+        String randomString = randomStringService.generateRandomString(unicodeScript);
         System.out.println("Random String:" + randomString);
         assertNotNull(randomString);
         assertTrue(randomString.length() >= 6);
@@ -30,7 +35,7 @@ public class TestFile {
     @Test
     void testSpecificCharExists() {
         char specificChar = (char) 0x3098;
-        System.out.println("Specific Char:" + specificChar);
+//        System.out.println("Specific Char:" + specificChar);
         assertNotNull(specificChar);
     }
 }

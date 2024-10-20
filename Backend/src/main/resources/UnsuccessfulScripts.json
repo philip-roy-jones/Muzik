@@ -1,0 +1,17 @@
+// Assumes gen length between 1 and 5, includes both ends
+//  This list is for scripts that do not give much results when fetching Spotify
+[
+  {
+    // Barely works when length is 1 or 2, but not 3 or more
+    // This is because the script is not supported by Spotify
+    "name": "hangul",
+    "ranges": [
+      ["1100", "11FF"],  // Hangul Jamo (Not precomposed; individual Jamo characters for composing syllables)
+      ["3130", "318F"],  // Hangul Compatibility Jamo (Not precomposed; legacy compatibility characters)
+      ["A960", "A97F"],  // Hangul Jamo Extended-A (Not precomposed; additional individual Jamo characters)
+      ["AC00", "D7AF"],  // Hangul Syllables (Precomposed; full syllable blocks from "가" to "힣")
+      ["D7B0", "D7FF"],  // Hangul Jamo Extended-B (Not precomposed; additional Jamo characters)
+      ["FFA0", "FFDC"]   // Halfwidth Hangul Jamo (Not precomposed; halfwidth compatibility characters)
+    ]
+  }
+]

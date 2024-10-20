@@ -1,4 +1,4 @@
-package xyz.philipjones.muzik.services;
+package xyz.philipjones.muzik.services.spotify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.config.ObjectIdDeserializer;
+import xyz.philipjones.muzik.services.RedisService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 import xyz.philipjones.muzik.services.security.UserService;
 import xyz.philipjones.muzik.utils.PKCEUtil;
@@ -159,13 +160,13 @@ public class SpotifyTokenService {
         objectMapper.registerModule(new BsonModule());
         objectMapper.registerModule(new SimpleModule().addDeserializer(ObjectId.class, new ObjectIdDeserializer())
                 .addDeserializer(ObjectId.class, new ObjectIdDeserializer()));
-        System.out.println(responseMap);
+
         String grantType = (String) responseMap.get("grant_type");
         String refreshToken = (String) responseMap.get("refresh_token");
         String accessToken = (String) responseMap.get("access_token");
         Integer expiresIn = (Integer) responseMap.get("expires_in");
         User user = objectMapper.convertValue(responseMap.get("user"), User.class);
-
+        System.out.println("Access token: " + accessToken);
         if (grantType.equals("refresh_token") && refreshToken != null) {    // Spotify sometimes provides new refresh tokens
             user.getConnections().get("spotify").put("refreshToken", stringEncryptor.encrypt(refreshToken));
             user.getConnections().get("spotify").put("issueDate", new Date());

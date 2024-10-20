@@ -2,26 +2,24 @@ package xyz.philipjones.muzik.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import xyz.philipjones.muzik.models.UnicodeRange;
+import xyz.philipjones.muzik.models.UnicodeScript;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Random;
 
 @Service
-public class StringRandomService {
+public class RandomStringService {
 
-    private final UnicodeRangeService unicodeRangeService;
+    private final UnicodeScriptService unicodeScriptService;
 
     @Autowired
-    public StringRandomService(UnicodeRangeService unicodeRangeService) {
-        this.unicodeRangeService = unicodeRangeService;
+    public RandomStringService(UnicodeScriptService unicodeScriptService) {
+        this.unicodeScriptService = unicodeScriptService;
     }
 
-    public char generateRandomCharacter() {
-        UnicodeRange unicodeGroup = unicodeRangeService.generateRandomRangeGroup();
-        List<String> randomRange = unicodeRangeService.generateRandomRange(unicodeGroup);
+    public char generateRandomCharacter(UnicodeScript unicodeScript) {
+        List<String> randomRange = unicodeScriptService.generateRandomRange(unicodeScript);
+
         int unicodeStart = Integer.parseInt(randomRange.get(0), 16);
         int unicodeEnd = Integer.parseInt(randomRange.get(1), 16);
 //        System.out.println("Unicode Start:" + unicodeStart);
@@ -30,16 +28,17 @@ public class StringRandomService {
         return (char) (random.nextInt(unicodeEnd - unicodeStart + 1) + unicodeStart);
     }
 
-    public String generateRandomString() {
+    public String generateRandomString(UnicodeScript unicodeScript) {
+
         StringBuilder sb = new StringBuilder();
         Random random = new Random();
 
-        int minLength = 32;
-        int maxLength = 64;
+        int minLength = 1;
+        int maxLength = 5;
         int length = random.nextInt(maxLength - minLength + 1) + minLength;
 //        System.out.println("-----------------------------------");
-        for (int i = 0; i < length; i++) {
-            char randomChar = generateRandomCharacter();
+        while (sb.length() < length) {
+            char randomChar = generateRandomCharacter(unicodeScript);
             sb.append(randomChar);
         }
 //        System.out.println("-----------------------------------");
