@@ -75,7 +75,7 @@ public class ServerAccessTokenService {
             }
 
             // Validating blacklist
-            if (Boolean.TRUE.equals(redisService.hasKey("serverAccessToken:blacklist:" + claims.getId()))) {
+            if (Boolean.TRUE.equals(redisService.hasKey("serverAccessToken:blacklist:" + stringEncryptor.encrypt(claims.getId())))) {
                 return false;
             }
 
