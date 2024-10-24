@@ -18,15 +18,20 @@ public class Album {
     private String releaseDate;
     private String releaseDatePrecision;
     private Integer totalTracks;
+    private ArrayList images;
     @Indexed
-    private ArrayList<ObjectId> artistOids;
+    private ArrayList<ObjectId> artistOids = new ArrayList<>();
     @Indexed
-    private ArrayList<ObjectId> trackOids;
+    private ArrayList<ObjectId> trackOids = new ArrayList<>();
 
     // Getters and setters
 
     public ObjectId getId() {
         return id;
+    }
+
+    public void setId(ObjectId id) {
+        this.id = id;
     }
 
     public String getSpotifyId() {
@@ -91,5 +96,13 @@ public class Album {
 
     public void setTrackOids(ArrayList<ObjectId> trackOids) {
         this.trackOids = trackOids;
+    }
+
+    public ArrayList getImages() {
+        return images;
+    }
+
+    public void setImages(ArrayList images) {
+        this.images = images;
     }
 }

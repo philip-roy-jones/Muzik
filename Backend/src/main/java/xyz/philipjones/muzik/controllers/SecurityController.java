@@ -7,12 +7,16 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.*;
 import xyz.philipjones.muzik.models.security.LoginRequest;
 import xyz.philipjones.muzik.models.security.RegistrationRequest;
+// TODO: Remove this import below, use the service instead
 import xyz.philipjones.muzik.models.security.ServerRefreshToken;
 import xyz.philipjones.muzik.models.security.User;
+import xyz.philipjones.muzik.services.security.ExternalAccessTokenService;
 import xyz.philipjones.muzik.services.security.AuthenticationService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 import xyz.philipjones.muzik.services.security.ServerRefreshTokenService;
 import xyz.philipjones.muzik.services.security.UserService;
+import xyz.philipjones.muzik.services.spotify.SpotifyHarvestService;
+import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -26,14 +30,22 @@ public class SecurityController {
     private final ServerAccessTokenService serverAccessTokenService;
     private final ServerRefreshTokenService serverRefreshTokenService;
     private final AuthenticationService authenticationService;
+    private final ExternalAccessTokenService externalAccessTokenRefreshService;
+    private final SpotifyHarvestService spotifyHarvestService;
+    private final SpotifyTokenService spotifyTokenService;
 
     @Autowired
     public SecurityController(UserService userService, ServerAccessTokenService serverAccessTokenService,
-                              ServerRefreshTokenService serverRefreshTokenService, AuthenticationService authenticationService) {
+                              ServerRefreshTokenService serverRefreshTokenService, AuthenticationService authenticationService,
+                              ExternalAccessTokenService externalAccessTokenRefreshService,
+                              SpotifyHarvestService spotifyHarvestService, SpotifyTokenService spotifyTokenService) {
         this.userService = userService;
         this.serverAccessTokenService = serverAccessTokenService;
         this.serverRefreshTokenService = serverRefreshTokenService;
         this.authenticationService = authenticationService;
+        this.externalAccessTokenRefreshService = externalAccessTokenRefreshService;
+        this.spotifyHarvestService = spotifyHarvestService;
+        this.spotifyTokenService = spotifyTokenService;
     }
 
     @PostMapping("/register")
@@ -69,11 +81,14 @@ public class SecurityController {
             }
 
             String accessToken = serverAccessTokenService.generateAccessToken(authentication.getName());
-            ServerRefreshToken refreshToken = serverRefreshTokenService.generateRefreshToken(authentication.getName(), loginRequest.isRememberMe(), accessToken);
+            ServerRefreshToken refreshTokenObj = serverRefreshTokenService.generateRefreshToken(authentication.getName(), loginRequest.isRememberMe(), accessToken);
+
+            externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
+            spotifyHarvestService.initSpotifyQueues(refreshTokenObj.getUsername());
 
             HashMap<String, String> response = new HashMap<>();
             response.put("accessToken", accessToken);
-            response.put("refreshToken", serverRefreshTokenService.getRefreshToken(refreshToken));
+            response.put("refreshToken", serverRefreshTokenService.getRefreshToken(refreshTokenObj));
 
             return ResponseEntity.ok(response);
         } catch (AuthenticationException e) {
@@ -107,8 +122,12 @@ public class SecurityController {
         }
 
         // Update jti in database
-        refreshTokenObj.setAccessJti(serverAccessTokenService.encryptJti(serverAccessTokenService.getClaimsFromToken(accessToken)));
+        serverRefreshTokenService.setAccessJti(refreshTokenObj, accessToken);
+        serverRefreshTokenService.setAccessExpiryDate(refreshTokenObj);
         serverRefreshTokenService.saveRefreshToken(refreshTokenObj);
+
+        externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
+        spotifyHarvestService.initSpotifyQueues(refreshTokenObj.getUsername());
 
         HashMap<String, String> response = new HashMap<>();
         response.put("accessToken", accessToken);
@@ -130,6 +149,9 @@ public class SecurityController {
         if (System.currentTimeMillis() < refreshTokenObj.getAccessExpiryDate().getTime()) {
             serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
         }
+
+        // Delete external access tokens
+        spotifyTokenService.deleteSpotifyAccessToken(refreshTokenObj.getUsername());
 
         // Remove refresh token from database
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);

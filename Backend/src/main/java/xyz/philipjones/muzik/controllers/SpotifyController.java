@@ -2,38 +2,42 @@ package xyz.philipjones.muzik.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import xyz.philipjones.muzik.models.UnicodeScript;
-import xyz.philipjones.muzik.services.RandomStringErrorService;
-import xyz.philipjones.muzik.services.UnicodeScriptService;
+import xyz.philipjones.muzik.services.redis.RedisQueueService;
+import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
+import xyz.philipjones.muzik.services.spotify.SpotifyCollectionService;
+import xyz.philipjones.muzik.services.spotify.SpotifyHarvestService;
 import xyz.philipjones.muzik.services.spotify.SpotifyRequestService;
 import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
-import xyz.philipjones.muzik.services.RandomStringService;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 
 @RestController
 @RequestMapping("/api/v1/spotify")
 public class SpotifyController {
 
-    private final RandomStringService randomStringService;
     private final SpotifyTokenService spotifyTokenService;
     private final SpotifyRequestService spotifyRequestService;
-    private final RandomStringErrorService randomStringErrorService;
-    private final UnicodeScriptService unicodeScriptService;
+    private final ServerAccessTokenService serverAccessTokenService;
+    private final SpotifyCollectionService spotifyCollectionService;
+    private final RedisQueueService redisQueueService;
+    private final SpotifyHarvestService spotifyHarvestService;
 
     @Autowired
-    public SpotifyController(RandomStringService randomStringService, SpotifyTokenService spotifyTokenService,
+    public SpotifyController(SpotifyTokenService spotifyTokenService,
                              SpotifyRequestService spotifyRequestService,
-                             RandomStringErrorService randomStringErrorService,
-                             UnicodeScriptService unicodeScriptService) {
-        this.randomStringService = randomStringService;
+                             ServerAccessTokenService serverAccessTokenService,
+                             SpotifyCollectionService spotifyCollectionService,
+                             RedisQueueService redisQueueService, SpotifyHarvestService spotifyHarvestService) {
         this.spotifyTokenService = spotifyTokenService;
         this.spotifyRequestService = spotifyRequestService;
-        this.randomStringErrorService = randomStringErrorService;
-        this.unicodeScriptService = unicodeScriptService;
+        this.serverAccessTokenService = serverAccessTokenService;
+        this.spotifyCollectionService = spotifyCollectionService;
+        this.redisQueueService = redisQueueService;
+        this.spotifyHarvestService = spotifyHarvestService;
     }
 
     // ----------------------------------------Auth Routes----------------------------------------
@@ -64,57 +68,37 @@ public class SpotifyController {
 
     // ----------------------------------------Spotify API Routes----------------------------------------
     @GetMapping("/random-track")
-    public HashMap<String, Object> getRandomTrack(@RequestHeader("Authorization") String authorizationHeader) {
-        UnicodeScript unicodeScript = unicodeScriptService.generateRandomScript();
-
-        String randomString = randomStringService.generateRandomString(unicodeScript);
-        System.out.println("Random String: " + '|' + randomString + '|');
+    public HashMap getRandomTrack(@RequestHeader("Authorization") String authorizationHeader) {
+        String username = serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject();
         int limit = 1;
         int offset = 0;
 
-        HashMap spotifyResponse = spotifyRequestService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
+        // Pop from track queue to get random string and total results
+        //  and immediately async harvest a new track
+        ArrayList<String> poppedItem = redisQueueService.popFromQueue(serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject(), "track");
+        spotifyHarvestService.harvestOne(username, "track");
 
-//        TODO: This randomizes it even further by making a second request using same args,
-//          but using a random offset if the total results are greater than the limit.
-//          Cannot implement at this current moment due to performance issues.
-//        HashMap trackies = (HashMap) spotifyResponse.get("tracks");
-//        int totalResults = (Integer) trackies.get("total");
-//        System.out.println("Total Results: " + totalResults);
-//
-//        if (totalResults > limit) {
-//            offset = new java.util.Random().nextInt(totalResults - limit);
-//            System.out.println("Offset: " + offset);
-//            spotifyResponse = spotifyService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
-//        }
+        // Generate a random offset based on the total results
+        Random random = new Random();
+        offset = random.nextInt(Integer.parseInt(poppedItem.get(1)));
+
+        HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), "track", limit, offset, "audio", username);
 
         HashMap tracks = (HashMap) spotifyResponse.get("tracks");
-        int totalResults = (Integer) tracks.get("total");
         ArrayList items = (ArrayList) tracks.get("items");
 
-        System.out.println("Total Results: " + totalResults);
-        while (totalResults == 0) {
-            randomStringErrorService.saveRandomStringError(randomString);
-
-            unicodeScript = unicodeScriptService.generateRandomScript();
-            randomString = randomStringService.generateRandomString(unicodeScript);
-            spotifyResponse = spotifyRequestService.search(randomString, "track", limit, offset, "audio", authorizationHeader.substring("Bearer ".length()));
-            tracks = (HashMap) spotifyResponse.get("tracks");
-            items = (ArrayList) tracks.get("items");
-            totalResults = (Integer) tracks.get("total");
-
-            if(totalResults != 0) {
-                System.out.println("No Longer 0: " + '|' + randomString + '|');
-                System.out.println("New Results: " + totalResults);
-            }
+        // Theoretically, there shouldn't be 0 items as the queue should only be populated with the strings with results
+        //  Unless in between the time the queue was populated and the time the user requests a random track, Spotify removes tracks
+        //  and the user happened to get a random offset greater than the total tracks
+        if (items.isEmpty()) {
+            return null;
         }
 
         HashMap randomTrack = (HashMap) items.getFirst();
-//        System.out.println(randomTrack);
-        String trackId = (String) randomTrack.get("id");
-//        System.out.println(trackId);
-        // TODO: Add that random track to the database asynchronously
 
-        return spotifyResponse;
+        spotifyCollectionService.createAndSaveTrackWithAlbumAndArtists(randomTrack);
+
+        return randomTrack;
     }
 
     @GetMapping("/test")

@@ -1,5 +1,29 @@
 [
   {
+    "name": "latin",
+    "ranges": [
+      ["0020", "007E"]
+    ]
+  },
+  {
+    "name": "cyrillic",
+    "ranges": [
+      ["0410", "044F"]
+    ]
+  },
+  {
+    "name": "hiragana",
+    "ranges": [
+      ["3040", "309F"]
+    ]
+  },
+  {
+    "name": "katakana",
+    "ranges": [
+      ["30A0", "30FF"]
+    ]
+  },
+  {
     "name": "hanzi",
     "ranges": [
       ["4E00", "9FFF"],

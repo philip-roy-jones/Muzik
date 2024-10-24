@@ -2,8 +2,8 @@ package xyz.philipjones.muzik;
 
 import org.junit.jupiter.api.Test;
 import xyz.philipjones.muzik.models.UnicodeScript;
-import xyz.philipjones.muzik.services.RandomStringService;
-import xyz.philipjones.muzik.services.UnicodeScriptService;
+import xyz.philipjones.muzik.services.random.string.RandomStringService;
+import xyz.philipjones.muzik.services.random.string.UnicodeScriptService;
 
 import static org.junit.jupiter.api.Assertions.*;
 

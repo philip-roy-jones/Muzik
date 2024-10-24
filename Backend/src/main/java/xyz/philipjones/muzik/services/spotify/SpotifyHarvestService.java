@@ -36,61 +36,53 @@ public class SpotifyHarvestService {
     }
 
     @Async
-    public void startHarvesting(String username) throws InterruptedException {
-        System.out.println("Starting harvesting for user: " + username);
-        String harvestingKey = "harvesting:" + username;
-        boolean isHarvesting = redisService.getValue(harvestingKey) != null;
+    public void initSpotifyQueues(String username) {
+        System.out.println("Initializing queues for user: " + username);
 
-        // Mark/remark the user as harvesting
-        redisService.setValueWithExpiration(harvestingKey, "true", spotifyTokenService.getSpotifyAccessTokenExpiration(username) + 5000);
+        // Set/reset expiration for each queue
+        redisService.setExpiration(redisQueueService.formatQueueKey(username, "track"), 1000*60*60);
+        redisService.setExpiration(redisQueueService.formatQueueKey(username, "album"), 1000*60*60);
+        redisService.setExpiration(redisQueueService.formatQueueKey(username, "artist"), 1000*60*60);
 
-        if (isHarvesting) {
-            System.out.println("User " + username + " is already harvesting. Renewed redis and returning...");
-            return;
-        }
-
-        int delay = 3333;
-
-        try {
-            // While the spotify access token is not expired, keep harvesting
-            while (spotifyTokenService.getSpotifyAccessToken(username) != null) {
-                // TODO: This blocks dev tools from being able to stop the thread, have to wait for it to timeout of 30 seconds
-                //2024-10-23T08:57:30.771-04:00  INFO 13460 --- [muzik] [       Thread-4] o.s.c.support.DefaultLifecycleProcessor  : Shutdown phase 2147483647 ends with 1 bean still running after timeout of 30000ms: [applicationTaskExecutor]
-                if (Thread.currentThread().isInterrupted()) {
-                    System.out.println("Thread interrupted for user: " + username);
-                    break;
-                }
-
-                // Types of harvesting: tracks, albums, artists
-                harvester(username, "track");
-                harvester(username, "album");
-                harvester(username, "artist");
-
-//                System.out.println("Sleeping for " + delay + " milliseconds");
-                Thread.sleep(delay);
+        // Initializing each queue breadth first until full
+        while (!redisQueueService.isQueueFull(username, "track") || !redisQueueService.isQueueFull(username, "album") || !redisQueueService.isQueueFull(username, "artist")) {
+            if (!redisQueueService.isQueueFull(username, "track")) {
+                harvest(username, "track");
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            System.out.println("Harvesting interrupted for user: " + username);
+            if (!redisQueueService.isQueueFull(username, "album")) {
+                harvest(username, "album");
+            }
+            if (!redisQueueService.isQueueFull(username, "artist")) {
+                harvest(username, "artist");
+            }
         }
     }
 
+    @Async
+    public void harvestOne(String username, String type) {
+        harvest(username, type);
+    }
 
     // ------------------------------ Private Methods ------------------------------
 
-    private void harvester(String username, String type) {
-        while (!redisQueueService.isQueueFull(username, type)) {
-            String randomString = randomStringService.generateRandomString(unicodeScriptService.generateRandomScript());
-            HashMap response = spotifyRequestService.search(randomString, type, 1, 0, "audio", username);
+    private void harvest(String username, String type) {
+            int totalResults = 0;
+            String randomString = "";
+            HashMap response;
+            Map<String, Object> tracks;
 
-            Map<String, Object> tracks = (Map<String, Object>) response.get(type + "s");
-            int totalResults = (int) tracks.get("total");
+            while (totalResults == 0) {
+                randomString = randomStringService.generateRandomString(unicodeScriptService.generateRandomScript());
+                response = spotifyRequestService.search(randomString, type, 1, 0, "audio", username);
+                tracks = (Map<String, Object>) response.get(type + "s");
+                totalResults = (int) tracks.get("total");
 
-            if (totalResults > 0) {
-                redisQueueService.addToQueue(username, type, randomString, totalResults);
-            } else {
-                randomStringErrorService.saveRandomStringError(randomString);
+                if (totalResults == 0) {
+//                    System.out.println("No results found for " + type + " with random string: " + randomString);
+                    randomStringErrorService.saveRandomStringError(randomString);
+                }
             }
-        }
+
+            redisQueueService.addToQueue(username, type, randomString, totalResults);
     }
 }

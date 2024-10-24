@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.ServerRefreshToken;
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.repositories.ServerRefreshTokenRepository;
-import xyz.philipjones.muzik.repositories.UserRepository;
 import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
 import java.security.Key;
@@ -30,15 +29,18 @@ public class ServerRefreshTokenService {
     private final UserService userService;
     private final StringEncryptor stringEncryptor;
     private final Key key;
+    private final ServerAccessTokenService serverAccessTokenService;
 
     @Autowired
     public ServerRefreshTokenService(ServerRefreshTokenRepository serverRefreshTokenRepository,
                                      @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
-                                     JwtKeyProvider jwtKeyProvider, UserService userService) {
+                                     JwtKeyProvider jwtKeyProvider, UserService userService,
+                                     ServerAccessTokenService serverAccessTokenService) {
         this.serverRefreshTokenRepository = serverRefreshTokenRepository;
         this.stringEncryptor = stringEncryptor;
         this.key = jwtKeyProvider.getKey();
         this.userService = userService;
+        this.serverAccessTokenService = serverAccessTokenService;
     }
 
     public ServerRefreshToken generateRefreshToken(String username, boolean isRememberMe, String accessToken) {
@@ -49,7 +51,7 @@ public class ServerRefreshTokenService {
         refreshToken.setUsername(username);
         refreshToken.setAccessJti(stringEncryptor.encrypt(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getId()));
         refreshToken.setAccessExpiryDate(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getExpiration());
-        refreshToken.setUserId(user.getId());
+        refreshToken.setUserOid(user.getId());
         refreshToken.setIssuedDate(new Date());
 
         if (isRememberMe) {
@@ -98,5 +100,13 @@ public class ServerRefreshTokenService {
 
     public void deleteRefreshToken(ServerRefreshToken refreshToken) {
         serverRefreshTokenRepository.delete(refreshToken);
+    }
+
+    public void setAccessJti(ServerRefreshToken refreshToken, String accessToken) {
+        refreshToken.setAccessJti(serverAccessTokenService.encryptJti(serverAccessTokenService.getClaimsFromToken(accessToken)));
+    }
+
+    public void setAccessExpiryDate(ServerRefreshToken refreshToken) {
+        refreshToken.setAccessExpiryDate(new Date(System.currentTimeMillis() + serverAccessTokenService.getAccessTokenExpirationInMs()));
     }
 }

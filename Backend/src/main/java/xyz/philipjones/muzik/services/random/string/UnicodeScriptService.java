@@ -1,4 +1,4 @@
-package xyz.philipjones.muzik.services;
+package xyz.philipjones.muzik.services.random.string;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;

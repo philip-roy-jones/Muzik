@@ -6,7 +6,6 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
 @Document(collection = "tracks")
 public class Track {
@@ -17,7 +16,7 @@ public class Track {
     private String name;
     private boolean explicit;
     @Indexed
-    private ArrayList<ObjectId> artistOids;     // First artist is the main artist
+    private ArrayList<ObjectId> artistOids = new ArrayList<>();     // First artist is the main artist
     @Indexed
     private ObjectId albumOid;
 
@@ -25,6 +24,10 @@ public class Track {
 
     public ObjectId getId() {
         return id;
+    }
+
+    public void setId(ObjectId id) {
+        this.id = id;
     }
 
     public String getSpotifyId() {

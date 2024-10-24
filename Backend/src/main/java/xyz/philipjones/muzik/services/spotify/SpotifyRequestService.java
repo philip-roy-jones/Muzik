@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.repositories.UserRepository;
-import xyz.philipjones.muzik.services.RedisService;
+import xyz.philipjones.muzik.services.redis.RedisService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 
 import java.io.IOException;
@@ -36,11 +36,8 @@ public class SpotifyRequestService {
         this.redisService = redisService;
     }
 
-    public HashMap search(String query, String type, int limit, int offset, String includeExternal, String serverAccessToken) {
-        String userId = userRepository.findByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject())
-                .map(user -> user.getId().toString()).orElseThrow(() -> new RuntimeException("User not found"));
-        System.out.println("userId: " + userId);
-        String spotifyAccessToken = stringEncryptor.decrypt(redisService.getValue("spotifyAccessToken:" + userId));
+    public HashMap search(String query, String type, int limit, int offset, String includeExternal, String username) {
+        String spotifyAccessToken = stringEncryptor.decrypt(redisService.getValue("spotifyAccessToken:" + username));
 
         // Build GET request to search for tracks
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create("https://api.spotify.com/v1/search" + "?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8) + "&type=" + type + "&limit=" + limit + "&include_external=" + includeExternal)).header("Authorization", "Bearer " + spotifyAccessToken).header("Accept", "application/json").GET().build();

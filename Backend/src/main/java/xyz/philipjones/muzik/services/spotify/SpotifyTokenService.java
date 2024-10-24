@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.config.ObjectIdDeserializer;
-import xyz.philipjones.muzik.services.RedisService;
+import xyz.philipjones.muzik.services.redis.RedisService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 import xyz.philipjones.muzik.services.security.UserService;
 import xyz.philipjones.muzik.utils.PKCEUtil;
@@ -97,14 +97,15 @@ public class SpotifyTokenService {
         return result;
     }
 
-    public HashMap refreshAccessToken(String spotifyRefreshToken, User user) throws IOException {
-        HashMap result = new HashMap();
+    public boolean refreshAccessToken(String spotifyRefreshToken, User user) throws IOException {
+        try{
+            HashMap<String, Object> jsonResponse = tokenApiCall("refresh_token", "", spotifyRefreshToken, "", user);
+            tokenApiResponseHandler(jsonResponse);
+        } catch (Exception e) {
+            return false;
+        }
 
-        HashMap<String, Object> jsonResponse = tokenApiCall("refresh_token", "", spotifyRefreshToken, "", user);
-        tokenApiResponseHandler(jsonResponse);
-
-        result.put("success", "Successfully refreshed Spotify access token");
-        return result;
+        return true;
     }
 
     public void removeConnection(String serverAccessToken) {
@@ -114,7 +115,29 @@ public class SpotifyTokenService {
             throw new IllegalArgumentException("User not found");
         }
         userService.removeConnection(user, "spotify");          // Remove connection from MongoDB
-        redisService.deleteKey("spotifyAccessToken:" + user.getId());   // Remove spotify access token from Redis
+        redisService.deleteKey("spotifyAccessToken:" + user.getUsername());   // Remove spotify access token from Redis
+    }
+
+    public String getSpotifyAccessToken(String username) {
+        User user = userService.getUserByUsername(username).orElse(null);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        String encryptedAccessToken = redisService.getValue("spotifyAccessToken:" + user.getUsername());
+        if (encryptedAccessToken == null) {
+            return null;
+        }
+
+        return stringEncryptor.decrypt(encryptedAccessToken);
+    }
+
+    public long getSpotifyAccessTokenExpiration(String username) {
+        return redisService.getExpiration("spotifyAccessToken:" + username);
+    }
+
+    public void deleteSpotifyAccessToken(String username) {
+        redisService.deleteKey("spotifyAccessToken:" + username);
     }
 
     //---------------------------------------------Privates---------------------------------------------
@@ -166,7 +189,7 @@ public class SpotifyTokenService {
         String accessToken = (String) responseMap.get("access_token");
         Integer expiresIn = (Integer) responseMap.get("expires_in");
         User user = objectMapper.convertValue(responseMap.get("user"), User.class);
-        System.out.println("Access token: " + accessToken);
+//        System.out.println("Spotify Access token: " + accessToken);
         if (grantType.equals("refresh_token") && refreshToken != null) {    // Spotify sometimes provides new refresh tokens
             user.getConnections().get("spotify").put("refreshToken", stringEncryptor.encrypt(refreshToken));
             user.getConnections().get("spotify").put("issueDate", new Date());
@@ -180,7 +203,7 @@ public class SpotifyTokenService {
         }
         userService.saveUser(user);
 
-        redisService.setValueWithExpiration("spotifyAccessToken:" + user.getId(),
+        redisService.setValueWithExpiration("spotifyAccessToken:" + user.getUsername(),
                 stringEncryptor.encrypt(accessToken), expiresIn * 1000);
     }
 }

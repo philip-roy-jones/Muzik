@@ -17,7 +17,7 @@ public class ServerRefreshToken {
     private Date accessExpiryDate;
     private Date issuedDate;
     private Date expiryDate;
-    private ObjectId userId;
+    private ObjectId userOid;
 
     // Getters and setters
     // DO NOT ENCRYPT/DECRYPT AT THE MODEL LEVEL
@@ -51,12 +51,12 @@ public class ServerRefreshToken {
         this.expiryDate = expiryDate;
     }
 
-    public ObjectId getUserId() {
-        return userId;
+    public ObjectId getUserOid() {
+        return userOid;
     }
 
-    public void setUserId(ObjectId userId) {
-        this.userId = userId;
+    public void setUserOid(ObjectId userId) {
+        this.userOid = userId;
     }
 
     public Date getIssuedDate() {

@@ -15,7 +15,6 @@ import xyz.philipjones.muzik.models.spotify.Track;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 
 @Service
@@ -51,23 +50,37 @@ public class SpotifyCollectionService {
         album.setTotalTracks(Integer.parseInt(albumData.get("total_tracks").toString()));
         album.setImages((ArrayList) albumData.get("images"));
 
-        // Create List of Artist instances
-        List<HashMap> artistsData = (List<HashMap>) data.get("artists");
+        // Create List of Artist instances for tracks
+        // An album could have one artist, but a track could have multiple artists
+        List<HashMap> trackArtistsData = (List<HashMap>) data.get("artists");
 
-        List<Artist> artists = new ArrayList<>();
-        for (HashMap artistData : artistsData) {
+        List<Artist> trackArtists = new ArrayList<>();
+        for (HashMap artistData : trackArtistsData) {
             Artist artist = new Artist();
             artist.setId(new ObjectId());
             artist.setSpotifyId(artistData.get("id").toString());
             artist.setName(artistData.get("name").toString());
 
-            artists.add(artist);
+            trackArtists.add(artist);
         }
 
-        saveTrackWithAlbumAndArtists(track, album, artists);
+        // Create List of Artist instances for albums
+        List<HashMap> albumArtistsData = (ArrayList) albumData.get("artists");
+
+        List<Artist> albumArtists = new ArrayList<>();
+        for (HashMap artistData : albumArtistsData) {
+            Artist artist = new Artist();
+            artist.setId(new ObjectId());
+            artist.setSpotifyId(artistData.get("id").toString());
+            artist.setName(artistData.get("name").toString());
+
+            albumArtists.add(artist);
+        }
+
+        saveTrackWithAlbumAndArtists(track, album, trackArtists, albumArtists);
     }
 
-    public void saveTrackWithAlbumAndArtists(Track trackData, Album albumData, List<Artist> artistDataList) {
+    public void saveTrackWithAlbumAndArtists(Track trackData, Album albumData, List<Artist> trackArtists, List<Artist> albumArtists) {
         // Check if track already exists
         Query trackQuery = new Query(Criteria.where("spotifyId").is(trackData.getSpotifyId()));
         Track existingTrack = mongoTemplate.findOne(trackQuery, Track.class);
@@ -78,20 +91,38 @@ public class SpotifyCollectionService {
         try (ClientSession session = mongoClient.startSession()) {
             session.startTransaction();
 
-            // Save or update artists
-            ArrayList<ObjectId> savedArtists = new ArrayList<>();
-            for (Artist artistData : artistDataList) {
+            // Save or update artists based off track artists
+            ArrayList<ObjectId> savedTrackArtists = new ArrayList<>();
+            for (Artist artistData : trackArtists) {
                 Query query = new Query(Criteria.where("spotifyId").is(artistData.getSpotifyId()));
                 Artist existingArtist = mongoTemplate.findOne(query, Artist.class);
                 if (existingArtist == null) {
                     mongoTemplate.save(artistData);
-                    savedArtists.add(artistData.getId());
+                    savedTrackArtists.add(artistData.getId());
                 } else {
                     // Optionally, update existing artist if needed
                     existingArtist.getAlbumOids().add(albumData.getId());
                     existingArtist.setAlbumOids(existingArtist.getAlbumOids());
                     mongoTemplate.save(existingArtist);
-                    savedArtists.add(existingArtist.getId());
+                    savedTrackArtists.add(existingArtist.getId());
+                }
+            }
+            
+            // Save or update artists based off album artists
+            ArrayList<ObjectId> savedAlbumArtists = new ArrayList<>();
+            for (Artist artistData : albumArtists) {
+                Query query = new Query(Criteria.where("spotifyId").is(artistData.getSpotifyId()));
+                Artist existingArtist = mongoTemplate.findOne(query, Artist.class);
+                if (existingArtist == null) {
+                    mongoTemplate.save(artistData);
+                    savedAlbumArtists.add(artistData.getId());
+                } else {
+                    // Most of the time it should be and existing artist because
+                    //  the primary track artist is usually on their own albums
+                    existingArtist.getAlbumOids().add(albumData.getId());
+                    existingArtist.setAlbumOids(existingArtist.getAlbumOids());
+                    mongoTemplate.save(existingArtist);
+                    savedAlbumArtists.add(existingArtist.getId());
                 }
             }
 
@@ -99,9 +130,7 @@ public class SpotifyCollectionService {
             Query albumQuery = new Query(Criteria.where("spotifyId").is(albumData.getSpotifyId()));
             Album existingAlbum = mongoTemplate.findOne(albumQuery, Album.class);
             if (existingAlbum == null) {
-                // TODO: savedArtists is tied to a track, we need a separate album artists.
-                //  This is because a track can have multiple artists, but an album could have a single artist.
-                albumData.setArtistOids(savedArtists); // Reference saved artists
+                albumData.setArtistOids(savedAlbumArtists);
 
                 // Set album's track oids
                 // This does not order the tracks in the album, no plans to show user the tracks in the album
@@ -110,7 +139,7 @@ public class SpotifyCollectionService {
                 mongoTemplate.save(albumData);
             } else {
                 // Optionally, update existing album
-                existingAlbum.setArtistOids(savedArtists); // Update artists
+                existingAlbum.setArtistOids(savedTrackArtists); // Update artists
 
                 existingAlbum.getTrackOids().add(trackData.getId()); // Update tracks
                 existingAlbum.setTrackOids(existingAlbum.getTrackOids());
@@ -119,7 +148,7 @@ public class SpotifyCollectionService {
 
             // Save track, linking to the album and artists
             trackData.setAlbumOid(albumData.getId());
-            trackData.setArtistOids(savedArtists);
+            trackData.setArtistOids(savedTrackArtists);
             mongoTemplate.save(trackData);
 
             session.commitTransaction();

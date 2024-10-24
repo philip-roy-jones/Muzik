@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import xyz.philipjones.muzik.services.RedisService;
+import xyz.philipjones.muzik.services.redis.RedisService;
 import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
 import java.security.Key;
@@ -95,12 +95,14 @@ public class ServerAccessTokenService {
 
     public void blacklistAccessToken(String encryptedJti, Date expiration) {
         // An ENCRYPTED jti is passed through, all we need to do is add to Redis
-        System.out.println("Expiration get time baby: " + expiration.getTime());
-        System.out.println("Current time: " + System.currentTimeMillis());
         redisService.setValueWithExpiration("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", expiration.getTime() - System.currentTimeMillis());
     }
 
     public String encryptJti(Claims claims) {
         return stringEncryptor.encrypt(claims.getId());
+    }
+
+    public long getAccessTokenExpirationInMs() {
+        return accessTokenExpirationInMs;
     }
 }

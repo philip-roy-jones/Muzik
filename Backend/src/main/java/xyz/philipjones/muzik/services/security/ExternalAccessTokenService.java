@@ -31,7 +31,7 @@ public class ExternalAccessTokenService {
         if (spotifyRefreshToken != null) {
             try {
                 if (spotifyTokenService.refreshAccessToken(spotifyRefreshToken, user)) {
-                    System.out.println("Successfully refreshed Spotify access token");
+//                    System.out.println("Successfully refreshed Spotify access token");
                 };
             } catch (IOException e) {
                 // Handle the exception, e.g., log it or rethrow it as a runtime exception

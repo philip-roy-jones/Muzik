@@ -1,4 +1,4 @@
-package xyz.philipjones.muzik.services;
+package xyz.philipjones.muzik.services.random.string;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
