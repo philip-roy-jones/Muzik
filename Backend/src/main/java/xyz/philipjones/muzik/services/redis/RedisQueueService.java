@@ -27,7 +27,12 @@ public class RedisQueueService {
             // Log or handle a case when the queue is full
             System.out.println("Queue is full, not adding more items.");
         } else {
+            // HACK: Get the expiration time and set it back to the queue since it is removed when adding an item
+            Long expiration = redisTemplate.getExpire(queueKey, TimeUnit.MILLISECONDS);
             redisTemplate.opsForList().rightPush(queueKey, randomString + ":" + totalResults);
+            if (expiration != null && expiration > 0) {
+                redisTemplate.expire(queueKey, expiration, TimeUnit.MILLISECONDS);
+            }
         }
     }
 

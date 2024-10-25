@@ -70,40 +70,98 @@ public class SpotifyController {
     @GetMapping("/random-track")
     public HashMap getRandomTrack(@RequestHeader("Authorization") String authorizationHeader) {
         String username = serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject();
-        int limit = 1;
-        int offset = 0;
 
-        // Pop from track queue to get random string and total results
-        //  and immediately async harvest a new track
-        ArrayList<String> poppedItem = redisQueueService.popFromQueue(serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject(), "track");
-        spotifyHarvestService.harvestOne(username, "track");
-
-        // Generate a random offset based on the total results
-        Random random = new Random();
-        offset = random.nextInt(Integer.parseInt(poppedItem.get(1)));
-
-        HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), "track", limit, offset, "audio", username);
-
-        HashMap tracks = (HashMap) spotifyResponse.get("tracks");
-        ArrayList items = (ArrayList) tracks.get("items");
-
-        // Theoretically, there shouldn't be 0 items as the queue should only be populated with the strings with results
-        //  Unless in between the time the queue was populated and the time the user requests a random track, Spotify removes tracks
-        //  and the user happened to get a random offset greater than the total tracks
-        if (items.isEmpty()) {
-            return null;
-        }
-
-        HashMap randomTrack = (HashMap) items.getFirst();
+        HashMap randomTrack = makeRandomSearch(username, "track");
 
         spotifyCollectionService.createAndSaveTrackWithAlbumAndArtists(randomTrack);
 
         return randomTrack;
     }
 
+    @GetMapping("/random-album")
+    public HashMap getRandomAlbum(@RequestHeader("Authorization") String authorizationHeader) {
+        String username = serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject();
+
+        HashMap randomAlbum = makeRandomAlbumSearch(username);
+
+        return randomAlbum;
+    }
+
+    @GetMapping("/random-artist")
+    public HashMap getRandomArtist(@RequestHeader("Authorization") String authorizationHeader) {
+        String username = serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject();
+
+        HashMap randomArtist = makeRandomSearch(username, "artist");
+
+        return randomArtist;
+    }
+
     @GetMapping("/test")
     public String test(@RequestHeader("Authorization") String authorizationHeader) {
 
         return "hello world";
+    }
+
+    // ----------------------------------------Private Methods----------------------------------------
+
+    private HashMap makeRandomSearch (String username, String type) {
+        int limit = 1;
+        int offset = 0;
+
+        // Pop from queue to get random string and total results
+        //  and immediately async harvest a new track
+        ArrayList<String> poppedItem = redisQueueService.popFromQueue(username, type);
+        spotifyHarvestService.harvestOne(username, type);
+
+        // Generate a random offset based on the total results
+        Random random = new Random();
+        offset = random.nextInt(Integer.parseInt(poppedItem.get(1)));
+
+        HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), type, limit, offset, "audio", username);
+
+        HashMap result = (HashMap) spotifyResponse.get(type + "s");
+        ArrayList items = (ArrayList) result.get("items");
+
+        // Theoretically, there shouldn't be 0 items as the queue should only be populated with the strings with results
+        //  Unless in between the time the queue was populated and the time the user makes a request, Spotify removes items
+        //  and the user happened to get a random offset greater than the total items
+        if (items.isEmpty()) {
+            return null;
+        }
+
+        return (HashMap) items.getFirst();
+    }
+
+    // Needs to be separate because of the way the Spotify API returns singles and compilations as albums
+    private HashMap makeRandomAlbumSearch (String username) {
+        Random random = new Random();
+        ArrayList items = new ArrayList();
+        final int limit = 50;
+
+        while (items.isEmpty()) {
+            int offset = 0;
+
+            // Pop from queue to get random string and total results
+            //  and immediately async harvest a new track
+            ArrayList<String> poppedItem = redisQueueService.popFromQueue(username, "album");
+            spotifyHarvestService.harvestOne(username, "album");
+
+            int totalResults = Integer.parseInt(poppedItem.get(1));
+
+            // Generate a random offset based on the total results
+            if (totalResults > limit) {
+                offset = random.nextInt(totalResults - (limit - 1));
+            }
+
+            HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), "album", limit, offset, "audio", username);
+
+            HashMap result = (HashMap) spotifyResponse.get("albums");
+            items = (ArrayList) result.get("items");
+
+            // Removing all items that are not actual albums
+            items.removeIf(item -> !((HashMap) item).get("album_type").equals("album"));
+        }
+
+        return (HashMap) items.get(random.nextInt(items.size()));
     }
 }

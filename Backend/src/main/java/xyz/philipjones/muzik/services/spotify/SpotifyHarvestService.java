@@ -37,12 +37,13 @@ public class SpotifyHarvestService {
 
     @Async
     public void initSpotifyQueues(String username) {
+        long timeToLive = 3600000;  // 1 hour in ms
         System.out.println("Initializing queues for user: " + username);
 
         // Set/reset expiration for each queue
-        redisService.setExpiration(redisQueueService.formatQueueKey(username, "track"), 1000*60*60);
-        redisService.setExpiration(redisQueueService.formatQueueKey(username, "album"), 1000*60*60);
-        redisService.setExpiration(redisQueueService.formatQueueKey(username, "artist"), 1000*60*60);
+        redisService.setExpiration(redisQueueService.formatQueueKey(username, "track"), timeToLive);
+        redisService.setExpiration(redisQueueService.formatQueueKey(username, "album"), timeToLive);
+        redisService.setExpiration(redisQueueService.formatQueueKey(username, "artist"), timeToLive);
 
         // Initializing each queue breadth first until full
         while (!redisQueueService.isQueueFull(username, "track") || !redisQueueService.isQueueFull(username, "album") || !redisQueueService.isQueueFull(username, "artist")) {
