@@ -11,6 +11,8 @@ import xyz.philipjones.muzik.config.ObjectIdSerializer;
 
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 @Document(collection = "users")
 public class User {
@@ -21,35 +23,20 @@ public class User {
 
     @Indexed(unique = true)
     private String username;
-
-    private String firstName;
-
-    private String lastName;
-
     private String email;
-
     private String password;  // Stores hashed passwords
-
     private Date createdAt;
-
     private Date updatedAt;
-
+    private Set<String> roles = new HashSet<>();
     private HashMap<String, HashMap<String, Object>> connections;
+    private String verificationCode;
+    private Date verificationCodeExpiry;
 
     // Constructors, getters, setters
     public User() {
+        // Default constructor
         this.connections = new HashMap<String, HashMap<String, Object>>();
-    }
-
-    public User(String username, String firstName, String lastName, String email, String password) {
-        this.username = username;
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.email = email;
-        this.password = password;
-        this.createdAt = new Date();
-        this.updatedAt = new Date();
-        this.connections = new HashMap<String, HashMap<String, Object>>();
+        this.roles = new HashSet<>();
     }
 
     public ObjectId getId() {
@@ -66,22 +53,6 @@ public class User {
 
     public void setUsername(String username) {
         this.username = username;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
     }
 
     public String getEmail() {
@@ -116,15 +87,40 @@ public class User {
         this.updatedAt = updatedAt;
     }
 
+    public Set<String> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<String> roles) {
+        this.roles = roles;
+    }
+
     public HashMap<String, HashMap<String, Object>> getConnections() {
         return connections;
     }
 
+    // Custom set methods
     public void addConnection(String key, HashMap value) {
         this.connections.put(key, value);
     }
 
     public void removeConnection(String key) {
         this.connections.remove(key);
+    }
+
+    public String getVerificationCode() {
+        return verificationCode;
+    }
+
+    public void setVerificationCode(String verificationCode) {
+        this.verificationCode = verificationCode;
+    }
+
+    public Date getVerificationCodeExpiry() {
+        return verificationCodeExpiry;
+    }
+
+    public void setVerificationCodeExpiry(Date verificationCodeExpiry) {
+        this.verificationCodeExpiry = verificationCodeExpiry;
     }
 }

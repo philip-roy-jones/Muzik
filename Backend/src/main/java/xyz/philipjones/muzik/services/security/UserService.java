@@ -4,26 +4,37 @@ import org.bson.types.ObjectId;
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+// TODO: refactor to use the service instead
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.repositories.UserRepository;
+import xyz.philipjones.muzik.services.email.EmailService;
 
+import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserService {
 
+    private final String frontendUrl;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final StringEncryptor stringEncryptor;
+    private final EmailService emailService;
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
+                       EmailService emailService, @Value("${frontend.http.url}") String frontendUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.stringEncryptor = stringEncryptor;
+        this.emailService = emailService;
+        this.frontendUrl = frontendUrl;
     }
 
     public boolean registerUser(User user) {
@@ -32,12 +43,28 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.getRoles().add("unverified");
+
         try {
-            return userRepository.save(user) != null;
+            userRepository.save(user);
+            sendVerificationCode(user);
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public boolean verifyUser(String username) {
+        Optional<User> userOptional = userRepository.findByUsername(username);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.getRoles().remove("unverified");
+            user.getRoles().add("user");
+            userRepository.save(user);
+            return true;
+        }
+        return false;
     }
 
     public Optional<User> getUserByUsername(String username) {
@@ -70,5 +97,20 @@ public class UserService {
 
     private Map<String, Object> getConnections(User user, String connectionName) {
         return user.getConnections().get(connectionName);
+    }
+
+    private void sendVerificationCode(User user) {
+        String verificationCode = generateVerificationCode();
+        user.setVerificationCode(verificationCode);
+        user.setVerificationCodeExpiry(new Date(System.currentTimeMillis() + 24 * 60 * 60 * 1000)); // 24 hours expiry
+        userRepository.save(user);
+
+        String verificationUrl = frontendUrl + "/verify?code=" + verificationCode;
+        String emailText = "Please verify your email by clicking the following link: " + verificationUrl;
+        emailService.sendEmail(user.getEmail(), "Muzik Email Verification", emailText);
+    }
+
+    private String generateVerificationCode() {
+        return UUID.randomUUID().toString();
     }
 }

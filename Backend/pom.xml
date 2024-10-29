@@ -11,7 +11,7 @@
     <groupId>xyz.philipjones</groupId>
     <artifactId>muzik</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>muzik</name>
+    <username>muzik</username>
     <description>Backend for Muzik App</description>
     <url/>
     <licenses>
@@ -30,6 +30,8 @@
         <java.version>23</java.version>
     </properties>
     <dependencies>
+
+
 
         <!-- Jakarta Servlet API dependency for servlet support -->
         <dependency>
@@ -124,6 +126,10 @@
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

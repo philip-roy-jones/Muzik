@@ -23,7 +23,7 @@ import java.util.HashMap;
 
 @RestController
 @RequestMapping("/public")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "${frontend.http.url}")      // TODO: Deployment use https
 public class SecurityController {
 
     private final UserService userService;
@@ -49,24 +49,35 @@ public class SecurityController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegistrationRequest registrationRequest) {
+    public ResponseEntity<HashMap> register(@RequestBody RegistrationRequest registrationRequest) {
         try {
+            if (!registrationRequest.getPassword().equals(registrationRequest.getConfirmPassword())) {
+                return ResponseEntity.status(400).body(new HashMap<String, String>() {{
+                    put("error", "Passwords do not match");
+                }});
+            }
+
             User user = new User();
             user.setUsername(registrationRequest.getUsername());
-            user.setFirstName(registrationRequest.getFirstName());
-            user.setLastName(registrationRequest.getLastName());
             user.setEmail(registrationRequest.getEmail());
             user.setPassword(registrationRequest.getPassword());
             user.setCreatedAt(new Date());
             user.setUpdatedAt(new Date());
 
             if (userService.registerUser(user)) {
-                return ResponseEntity.ok("Registration successful");
+                // Authenticate user by calling login method
+                LoginRequest loginRequest = new LoginRequest(registrationRequest.getUsername(),
+                        registrationRequest.getPassword(), false);
+                return login(loginRequest);
             } else {
-                return ResponseEntity.status(400).body("Username already exists");
+                return ResponseEntity.status(400).body(new HashMap<String, String>() {{
+                    put("error", "Username already exists");
+                }});
             }
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error during registration");
+            return ResponseEntity.status(500).body(new HashMap<String, String>() {{
+                put("error", "Error during registration");
+            }});
         }
     }
 
@@ -83,8 +94,7 @@ public class SecurityController {
             String accessToken = serverAccessTokenService.generateAccessToken(authentication.getName());
             ServerRefreshToken refreshTokenObj = serverRefreshTokenService.generateRefreshToken(authentication.getName(), loginRequest.isRememberMe(), accessToken);
 
-            externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
-            spotifyHarvestService.initSpotifyQueues(refreshTokenObj.getUsername());
+            refreshTokenAndInitQueue(refreshTokenObj);
 
             HashMap<String, String> response = new HashMap<>();
             response.put("accessToken", accessToken);
@@ -126,8 +136,7 @@ public class SecurityController {
         serverRefreshTokenService.setAccessExpiryDate(refreshTokenObj);
         serverRefreshTokenService.saveRefreshToken(refreshTokenObj);
 
-        externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
-        spotifyHarvestService.initSpotifyQueues(refreshTokenObj.getUsername());
+        refreshTokenAndInitQueue(refreshTokenObj);
 
         HashMap<String, String> response = new HashMap<>();
         response.put("accessToken", accessToken);
@@ -157,5 +166,13 @@ public class SecurityController {
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
         return ResponseEntity.ok("Logout successful");
+    }
+
+    private void refreshTokenAndInitQueue(ServerRefreshToken refreshTokenObj) {
+        externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
+
+        if (userService.getSpotifyRefreshToken(userService.getUserByUsername(refreshTokenObj.getUsername()).get()) != null) {
+            spotifyHarvestService.initSpotifyQueues(refreshTokenObj.getUsername());
+        }
     }
 }

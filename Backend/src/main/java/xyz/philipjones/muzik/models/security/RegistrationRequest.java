@@ -2,18 +2,16 @@ package xyz.philipjones.muzik.models.security;
 
 public class RegistrationRequest {
     private String username;
-    private String firstName;
-    private String lastName;
     private String email;
     private String password;
+    private String confirmPassword;
 
     // Constructor
-    public RegistrationRequest(String username, String firstName, String lastName, String email, String password) {
+    public RegistrationRequest(String username, String email, String password, String confirmPassword) {
         this.username = username;
-        this.firstName = firstName;
-        this.lastName = lastName;
         this.email = email;
         this.password = password;
+        this.confirmPassword = confirmPassword;
     }
 
     // Getters and Setters
@@ -23,22 +21,6 @@ public class RegistrationRequest {
 
     public void setUsername(String username) {
         this.username = username;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
     }
 
     public String getEmail() {
@@ -55,5 +37,13 @@ public class RegistrationRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getConfirmPassword() {
+        return confirmPassword;
+    }
+
+    public void setConfirmPassword(String confirmPassword) {
+        this.confirmPassword = confirmPassword;
     }
 }
