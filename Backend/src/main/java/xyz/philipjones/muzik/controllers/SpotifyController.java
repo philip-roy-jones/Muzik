@@ -39,7 +39,7 @@ public class SpotifyController {
         this.redisQueueService = redisQueueService;
         this.spotifyHarvestService = spotifyHarvestService;
     }
-
+    // TODO: Should grab from cookie not header
     // ----------------------------------------Auth Routes----------------------------------------
     @GetMapping("/authorize")
     public HashMap<String, String> getCode(@RequestHeader("Authorization") String authorizationHeader) throws NoSuchAlgorithmException {

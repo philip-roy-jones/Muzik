@@ -11,7 +11,6 @@
     <groupId>xyz.philipjones</groupId>
     <artifactId>muzik</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <username>muzik</username>
     <description>Backend for Muzik App</description>
     <url/>
     <licenses>
@@ -30,9 +29,6 @@
         <java.version>23</java.version>
     </properties>
     <dependencies>
-
-
-
         <!-- Jakarta Servlet API dependency for servlet support -->
         <dependency>
             <groupId>jakarta.servlet</groupId>

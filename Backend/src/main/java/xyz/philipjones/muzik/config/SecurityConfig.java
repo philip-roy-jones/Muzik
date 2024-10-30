@@ -92,8 +92,7 @@ public class SecurityConfig {
                                 "/error/**",                            // FOR DEBUG PURPOSES ONLY
                                 "/api/v1/spotify/callback",             // Spotify cannot redirect to callback with the access token
                                 "/favicon.ico"
-                        )
-                        .permitAll()
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(serverAccessTokenService), UsernamePasswordAuthenticationFilter.class);

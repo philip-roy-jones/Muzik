@@ -1,5 +1,7 @@
 package xyz.philipjones.muzik.controllers;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,7 +25,7 @@ import java.util.HashMap;
 
 @RestController
 @RequestMapping("/public")
-@CrossOrigin(origins = "${frontend.http.url}")      // TODO: Deployment use https
+@CrossOrigin(origins = "${frontend.https.url}", allowCredentials = "true")      // Credentials are required for cookies to be sent and stored
 public class SecurityController {
 
     private final UserService userService;
@@ -49,7 +51,7 @@ public class SecurityController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<HashMap> register(@RequestBody RegistrationRequest registrationRequest) {
+    public ResponseEntity<HashMap> register(@RequestBody RegistrationRequest registrationRequest, HttpServletResponse response) {
         try {
             if (!registrationRequest.getPassword().equals(registrationRequest.getConfirmPassword())) {
                 return ResponseEntity.status(400).body(new HashMap<String, String>() {{
@@ -68,7 +70,7 @@ public class SecurityController {
                 // Authenticate user by calling login method
                 LoginRequest loginRequest = new LoginRequest(registrationRequest.getUsername(),
                         registrationRequest.getPassword(), false);
-                return login(loginRequest);
+                return login(loginRequest, response);
             } else {
                 return ResponseEntity.status(400).body(new HashMap<String, String>() {{
                     put("error", "Username already exists");
@@ -82,7 +84,7 @@ public class SecurityController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<HashMap> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<HashMap> login(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
         try {
             Authentication authentication = authenticationService.authenticate(loginRequest);
             if (!authentication.isAuthenticated()) {
@@ -96,11 +98,19 @@ public class SecurityController {
 
             refreshTokenAndInitQueue(refreshTokenObj);
 
-            HashMap<String, String> response = new HashMap<>();
-            response.put("accessToken", accessToken);
-            response.put("refreshToken", serverRefreshTokenService.getRefreshToken(refreshTokenObj));
+            Cookie accessTokenCookie = new Cookie("accessToken", accessToken);
+            accessTokenCookie.setHttpOnly(false);
+            accessTokenCookie.setPath("/");
+            accessTokenCookie.setMaxAge((int) serverAccessTokenService.getAccessTokenExpirationInMs() / 1000); // In Seconds
+            response.addCookie(accessTokenCookie);
 
-            return ResponseEntity.ok(response);
+            Cookie refreshTokenCookie = new Cookie("refreshToken", serverRefreshTokenService.getRefreshToken(refreshTokenObj));
+            refreshTokenCookie.setHttpOnly(false);
+            refreshTokenCookie.setPath("/");
+            refreshTokenCookie.setMaxAge((int) ((refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis()) / 1000)); // In Seconds
+            response.addCookie(refreshTokenCookie);
+
+            return ResponseEntity.ok(new HashMap<>());
         } catch (AuthenticationException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "Invalid login credentials");
@@ -141,7 +151,7 @@ public class SecurityController {
         HashMap<String, String> response = new HashMap<>();
         response.put("accessToken", accessToken);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new HashMap<>());
     }
 
     @PostMapping("/logout")

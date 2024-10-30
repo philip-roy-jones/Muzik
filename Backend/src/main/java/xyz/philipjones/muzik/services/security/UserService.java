@@ -29,7 +29,7 @@ public class UserService {
     @Autowired
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
-                       EmailService emailService, @Value("${frontend.http.url}") String frontendUrl) {
+                       EmailService emailService, @Value("${frontend.https.url}") String frontendUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.stringEncryptor = stringEncryptor;

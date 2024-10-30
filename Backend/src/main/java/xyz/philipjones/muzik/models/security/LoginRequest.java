@@ -12,6 +12,15 @@ public class LoginRequest {
         this.rememberMe = rememberMe;
     }
 
+    @Override
+    public String toString() {
+        return "LoginRequest{" +
+                "username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                ", rememberMe=" + rememberMe +
+                '}';
+    }
+
     // Getters and Setters
     public String getUsername() {
         return username;
