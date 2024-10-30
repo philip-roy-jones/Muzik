@@ -16,18 +16,16 @@ public class SpotifyHarvestService {
 
     private final RedisQueueService redisQueueService;
     private final RedisService redisService;
-    private final SpotifyTokenService spotifyTokenService;
     private final RandomStringService randomStringService;
     private final UnicodeScriptService unicodeScriptService;
     private final SpotifyRequestService spotifyRequestService;
     private final RandomStringErrorService randomStringErrorService;
 
-    public SpotifyHarvestService(RedisQueueService redisQueueService, SpotifyTokenService spotifyTokenService,
+    public SpotifyHarvestService(RedisQueueService redisQueueService,
                                  RedisService redisService, RandomStringService randomStringService,
                                  UnicodeScriptService unicodeScriptService, SpotifyRequestService spotifyRequestService,
                                  RandomStringErrorService randomStringErrorService) {
         this.redisQueueService = redisQueueService;
-        this.spotifyTokenService = spotifyTokenService;
         this.redisService = redisService;
         this.randomStringService = randomStringService;
         this.unicodeScriptService = unicodeScriptService;

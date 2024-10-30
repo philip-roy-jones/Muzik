@@ -3,6 +3,7 @@ package xyz.philipjones.muzik.controllers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import xyz.philipjones.muzik.services.redis.RedisQueueService;
+import xyz.philipjones.muzik.services.redis.RedisService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 import xyz.philipjones.muzik.services.spotify.SpotifyCollectionService;
 import xyz.philipjones.muzik.services.spotify.SpotifyHarvestService;
@@ -24,6 +25,7 @@ public class SpotifyController {
     private final ServerAccessTokenService serverAccessTokenService;
     private final SpotifyCollectionService spotifyCollectionService;
     private final RedisQueueService redisQueueService;
+    private final RedisService redisService;
     private final SpotifyHarvestService spotifyHarvestService;
 
     @Autowired
@@ -31,19 +33,21 @@ public class SpotifyController {
                              SpotifyRequestService spotifyRequestService,
                              ServerAccessTokenService serverAccessTokenService,
                              SpotifyCollectionService spotifyCollectionService,
-                             RedisQueueService redisQueueService, SpotifyHarvestService spotifyHarvestService) {
+                             RedisQueueService redisQueueService, SpotifyHarvestService spotifyHarvestService,
+                             RedisService redisService) {
         this.spotifyTokenService = spotifyTokenService;
         this.spotifyRequestService = spotifyRequestService;
         this.serverAccessTokenService = serverAccessTokenService;
         this.spotifyCollectionService = spotifyCollectionService;
         this.redisQueueService = redisQueueService;
+        this.redisService = redisService;
         this.spotifyHarvestService = spotifyHarvestService;
     }
     // TODO: Should grab from cookie not header
     // ----------------------------------------Auth Routes----------------------------------------
     @GetMapping("/authorize")
-    public HashMap<String, String> getCode(@RequestHeader("Authorization") String authorizationHeader) throws NoSuchAlgorithmException {
-        String authorizationUrl = spotifyTokenService.getAuthorizationUrl(authorizationHeader.substring("Bearer ".length()));
+    public HashMap<String, String> getCode(@CookieValue("accessToken") String accessToken) throws NoSuchAlgorithmException {
+        String authorizationUrl = spotifyTokenService.getAuthorizationUrl(accessToken);
         HashMap<String, String> result = new HashMap<>();
         result.put("authorizationUrl", authorizationUrl);
         return result;
@@ -51,6 +55,7 @@ public class SpotifyController {
 
     @GetMapping("/callback")
     public HashMap<String, String> getToken(@RequestParam("code") String code, @RequestParam("state") String receivedState) throws IOException {
+
         try {
             return spotifyTokenService.handleSpotifyCallback(code, receivedState);
         } catch (IllegalArgumentException e) {
@@ -61,8 +66,18 @@ public class SpotifyController {
     }
 
     @DeleteMapping("/remove-connection")
-    public void removeConnection(@RequestHeader("Authorization") String authorizationHeader) {
-        spotifyTokenService.removeConnection(authorizationHeader.substring("Bearer ".length()));
+    public void removeConnection(@CookieValue("accessToken") String accessToken) {
+        spotifyTokenService.removeConnection(accessToken);
+
+        // Deleting queues
+        ArrayList<String> types = new ArrayList<>();
+        types.add("track");
+        types.add("album");
+        types.add("artist");
+
+        for (String type : types) {
+            redisService.deleteKey(redisQueueService.formatQueueKey(serverAccessTokenService.getClaimsFromToken(accessToken).getSubject(), type));
+        }
     }
 
 

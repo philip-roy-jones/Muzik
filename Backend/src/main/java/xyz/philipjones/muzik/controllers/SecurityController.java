@@ -25,7 +25,8 @@ import java.util.HashMap;
 
 @RestController
 @RequestMapping("/public")
-@CrossOrigin(origins = "${frontend.https.url}", allowCredentials = "true")      // Credentials are required for cookies to be sent and stored
+@CrossOrigin(origins = "${frontend.https.url}", allowCredentials = "true")
+// Credentials are required for cookies to be sent and stored
 public class SecurityController {
 
     private final UserService userService;
@@ -33,20 +34,18 @@ public class SecurityController {
     private final ServerRefreshTokenService serverRefreshTokenService;
     private final AuthenticationService authenticationService;
     private final ExternalAccessTokenService externalAccessTokenRefreshService;
-    private final SpotifyHarvestService spotifyHarvestService;
     private final SpotifyTokenService spotifyTokenService;
 
     @Autowired
     public SecurityController(UserService userService, ServerAccessTokenService serverAccessTokenService,
                               ServerRefreshTokenService serverRefreshTokenService, AuthenticationService authenticationService,
                               ExternalAccessTokenService externalAccessTokenRefreshService,
-                              SpotifyHarvestService spotifyHarvestService, SpotifyTokenService spotifyTokenService) {
+                              SpotifyTokenService spotifyTokenService) {
         this.userService = userService;
         this.serverAccessTokenService = serverAccessTokenService;
         this.serverRefreshTokenService = serverRefreshTokenService;
         this.authenticationService = authenticationService;
         this.externalAccessTokenRefreshService = externalAccessTokenRefreshService;
-        this.spotifyHarvestService = spotifyHarvestService;
         this.spotifyTokenService = spotifyTokenService;
     }
 
@@ -96,18 +95,22 @@ public class SecurityController {
             String accessToken = serverAccessTokenService.generateAccessToken(authentication.getName());
             ServerRefreshToken refreshTokenObj = serverRefreshTokenService.generateRefreshToken(authentication.getName(), loginRequest.isRememberMe(), accessToken);
 
-            refreshTokenAndInitQueue(refreshTokenObj);
+            externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
             Cookie accessTokenCookie = new Cookie("accessToken", accessToken);
-            accessTokenCookie.setHttpOnly(false);
+            accessTokenCookie.setHttpOnly(true);
             accessTokenCookie.setPath("/");
             accessTokenCookie.setMaxAge((int) serverAccessTokenService.getAccessTokenExpirationInMs() / 1000); // In Seconds
+            accessTokenCookie.setSecure(true);
+            accessTokenCookie.setAttribute("SameSite", "Strict");
             response.addCookie(accessTokenCookie);
 
             Cookie refreshTokenCookie = new Cookie("refreshToken", serverRefreshTokenService.getRefreshToken(refreshTokenObj));
-            refreshTokenCookie.setHttpOnly(false);
+            refreshTokenCookie.setHttpOnly(true);
             refreshTokenCookie.setPath("/");
             refreshTokenCookie.setMaxAge((int) ((refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis()) / 1000)); // In Seconds
+            refreshTokenCookie.setSecure(true);
+            refreshTokenCookie.setAttribute("SameSite", "Strict");
             response.addCookie(refreshTokenCookie);
 
             return ResponseEntity.ok(new HashMap<>());
@@ -146,7 +149,7 @@ public class SecurityController {
         serverRefreshTokenService.setAccessExpiryDate(refreshTokenObj);
         serverRefreshTokenService.saveRefreshToken(refreshTokenObj);
 
-        refreshTokenAndInitQueue(refreshTokenObj);
+        externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
         HashMap<String, String> response = new HashMap<>();
         response.put("accessToken", accessToken);
@@ -176,13 +179,5 @@ public class SecurityController {
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
         return ResponseEntity.ok("Logout successful");
-    }
-
-    private void refreshTokenAndInitQueue(ServerRefreshToken refreshTokenObj) {
-        externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
-
-        if (userService.getSpotifyRefreshToken(userService.getUserByUsername(refreshTokenObj.getUsername()).get()) != null) {
-            spotifyHarvestService.initSpotifyQueues(refreshTokenObj.getUsername());
-        }
     }
 }

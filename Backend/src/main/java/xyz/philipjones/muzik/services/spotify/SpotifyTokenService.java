@@ -44,16 +44,19 @@ public class SpotifyTokenService {
     private final RedisService redisService;
     private final ServerAccessTokenService serverAccessTokenService;
     private final UserService userService;
+    private final SpotifyHarvestService spotifyHarvestService;
     private final StringEncryptor stringEncryptor;
 
     @Autowired
     public SpotifyTokenService(RedisService redisService, ServerAccessTokenService serverAccessTokenService,
                                UserService userService,
-                               @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor) {
+                               @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
+                               SpotifyHarvestService spotifyHarvestService) {
         this.redisService = redisService;
         this.serverAccessTokenService = serverAccessTokenService;
         this.userService = userService;
         this.stringEncryptor = stringEncryptor;
+        this.spotifyHarvestService = spotifyHarvestService;
     }
 
     public String getAuthorizationUrl(String serverAccessToken) throws NoSuchAlgorithmException {
@@ -205,5 +208,8 @@ public class SpotifyTokenService {
 
         redisService.setValueWithExpiration("spotifyAccessToken:" + user.getUsername(),
                 stringEncryptor.encrypt(accessToken), expiresIn * 1000);
+
+        // Initialize or re-init Spotify queues
+        spotifyHarvestService.initSpotifyQueues(user.getUsername());
     }
 }
