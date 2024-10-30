@@ -97,21 +97,8 @@ public class SecurityController {
 
             externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
-            Cookie accessTokenCookie = new Cookie("accessToken", accessToken);
-            accessTokenCookie.setHttpOnly(true);
-            accessTokenCookie.setPath("/");
-            accessTokenCookie.setMaxAge((int) serverAccessTokenService.getAccessTokenExpirationInMs() / 1000); // In Seconds
-            accessTokenCookie.setSecure(true);
-            accessTokenCookie.setAttribute("SameSite", "Strict");
-            response.addCookie(accessTokenCookie);
-
-            Cookie refreshTokenCookie = new Cookie("refreshToken", serverRefreshTokenService.getRefreshToken(refreshTokenObj));
-            refreshTokenCookie.setHttpOnly(true);
-            refreshTokenCookie.setPath("/");
-            refreshTokenCookie.setMaxAge((int) ((refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis()) / 1000)); // In Seconds
-            refreshTokenCookie.setSecure(true);
-            refreshTokenCookie.setAttribute("SameSite", "Strict");
-            response.addCookie(refreshTokenCookie);
+            setAccessTokenCookie(accessToken, response);
+            setRefreshTokenCookie(refreshTokenObj, response);
 
             return ResponseEntity.ok(new HashMap<>());
         } catch (AuthenticationException e) {
@@ -122,8 +109,7 @@ public class SecurityController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<HashMap> refresh(@RequestBody HashMap<String, String> body) {
-        String refreshToken = body.get("refreshToken");
+    public ResponseEntity<HashMap> refresh(@CookieValue String refreshToken, HttpServletResponse response) {
         if (refreshToken == null) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "No refresh token provided");
@@ -151,10 +137,11 @@ public class SecurityController {
 
         externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
-        HashMap<String, String> response = new HashMap<>();
-        response.put("accessToken", accessToken);
+        setAccessTokenCookie(accessToken, response);
 
-        return ResponseEntity.ok(new HashMap<>());
+        return ResponseEntity.ok(new HashMap<String, String>() {{
+            put("message", "Token refreshed successfully");
+        }});
     }
 
     @PostMapping("/logout")
@@ -179,5 +166,26 @@ public class SecurityController {
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
         return ResponseEntity.ok("Logout successful");
+    }
+
+
+    private void setAccessTokenCookie(String accessToken, HttpServletResponse response) {
+        Cookie accessTokenCookie = new Cookie("accessToken", accessToken);
+        accessTokenCookie.setHttpOnly(true);
+        accessTokenCookie.setPath("/");
+        accessTokenCookie.setMaxAge((int) serverAccessTokenService.getAccessTokenExpirationInMs() / 1000); // In Seconds
+        accessTokenCookie.setSecure(true);
+        accessTokenCookie.setAttribute("SameSite", "Strict");
+        response.addCookie(accessTokenCookie);
+    }
+
+    private void setRefreshTokenCookie(ServerRefreshToken refreshTokenObj, HttpServletResponse response) {
+        Cookie refreshTokenCookie = new Cookie("refreshToken", serverRefreshTokenService.getRefreshToken(refreshTokenObj));
+        refreshTokenCookie.setHttpOnly(true);
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge((int) ((refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis()) / 1000)); // In Seconds
+        refreshTokenCookie.setSecure(true);
+        refreshTokenCookie.setAttribute("SameSite", "Strict");
+        response.addCookie(refreshTokenCookie);
     }
 }

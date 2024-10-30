@@ -43,7 +43,7 @@ public class SpotifyController {
         this.redisService = redisService;
         this.spotifyHarvestService = spotifyHarvestService;
     }
-    // TODO: Should grab from cookie not header
+
     // ----------------------------------------Auth Routes----------------------------------------
     @GetMapping("/authorize")
     public HashMap<String, String> getCode(@CookieValue("accessToken") String accessToken) throws NoSuchAlgorithmException {
@@ -74,7 +74,6 @@ public class SpotifyController {
         types.add("track");
         types.add("album");
         types.add("artist");
-
         for (String type : types) {
             redisService.deleteKey(redisQueueService.formatQueueKey(serverAccessTokenService.getClaimsFromToken(accessToken).getSubject(), type));
         }
@@ -83,8 +82,8 @@ public class SpotifyController {
 
     // ----------------------------------------Spotify API Routes----------------------------------------
     @GetMapping("/random-track")
-    public HashMap getRandomTrack(@RequestHeader("Authorization") String authorizationHeader) {
-        String username = serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject();
+    public HashMap getRandomTrack(@CookieValue("accessToken") String accessToken) {
+        String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
 
         HashMap randomTrack = makeRandomSearch(username, "track");
 
@@ -94,8 +93,8 @@ public class SpotifyController {
     }
 
     @GetMapping("/random-album")
-    public HashMap getRandomAlbum(@RequestHeader("Authorization") String authorizationHeader) {
-        String username = serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject();
+    public HashMap getRandomAlbum(@CookieValue("accessToken") String accessToken) {
+        String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
 
         HashMap randomAlbum = makeRandomAlbumSearch(username);
 
@@ -103,8 +102,8 @@ public class SpotifyController {
     }
 
     @GetMapping("/random-artist")
-    public HashMap getRandomArtist(@RequestHeader("Authorization") String authorizationHeader) {
-        String username = serverAccessTokenService.getClaimsFromToken(authorizationHeader.substring("Bearer ".length())).getSubject();
+    public HashMap getRandomArtist(@CookieValue("accessToken") String accessToken) {
+        String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
 
         HashMap randomArtist = makeRandomSearch(username, "artist");
 
@@ -112,9 +111,9 @@ public class SpotifyController {
     }
 
     @GetMapping("/test")
-    public String test(@RequestHeader("Authorization") String authorizationHeader) {
+    public String test(@CookieValue("accessToken") String accessToken) {
 
-        return "hello world";
+        return "hello " + serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
     }
 
     // ----------------------------------------Private Methods----------------------------------------
