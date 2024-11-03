@@ -1,5 +1,5 @@
-import React from "react";
 import LoginForm from "@/components/login/LoginForm";
+import Link from "next/link";
 
 export default function Login() {
   return (
@@ -18,9 +18,9 @@ export default function Login() {
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
         <LoginForm />
         <p className="mt-10 text-center text-sm text-gray-500">
-          <a href="/register" className="font-semibold leading-6 text-indigo-600 hover:text-indigo-500">
+          <Link href="/register" className="font-semibold leading-6 text-indigo-600 hover:text-indigo-500">
             Not a registered user?
-          </a>
+          </Link>
         </p>
       </div>
     </div>

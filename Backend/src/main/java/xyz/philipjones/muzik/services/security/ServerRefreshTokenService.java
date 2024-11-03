@@ -65,6 +65,29 @@ public class ServerRefreshTokenService {
         return refreshToken;
     }
 
+    public ServerRefreshToken generateRefreshTokenWithExpiryDate(String username, Date expiryDate, String accessToken) {
+        User user = userService.getUserByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
+
+        ServerRefreshToken refreshToken = new ServerRefreshToken();
+        refreshToken.setToken(stringEncryptor.encrypt(UUID.randomUUID().toString()));
+        refreshToken.setUsername(username);
+        refreshToken.setAccessJti(stringEncryptor.encrypt(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getId()));
+        refreshToken.setAccessExpiryDate(Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getExpiration());
+        refreshToken.setUserOid(user.getId());
+        refreshToken.setIssuedDate(new Date());
+
+        int timeLeft = (int) (expiryDate.getTime() - System.currentTimeMillis());
+        if (timeLeft > 0) {
+            refreshToken.setExpiryDate(new Date(System.currentTimeMillis() + timeLeft));
+        } else {
+            return null;
+        }
+
+        serverRefreshTokenRepository.save(refreshToken);
+
+        return refreshToken;
+    }
+
     // True if the token is valid, false otherwise
     public boolean validateRefreshToken(String token) {
         Optional<ServerRefreshToken> refreshTokenOpt = serverRefreshTokenRepository.findByToken(stringEncryptor.encrypt(token));
@@ -86,6 +109,10 @@ public class ServerRefreshTokenService {
 
     public ServerRefreshToken findByToken(String refreshToken) {
         return serverRefreshTokenRepository.findByToken(refreshToken).orElseThrow(() -> new RuntimeException("Refresh token not found"));
+    }
+
+    public ServerRefreshToken findByUsername(String username) {
+        return serverRefreshTokenRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Refresh token not found"));
     }
 
     public boolean saveRefreshToken(ServerRefreshToken refreshToken) {

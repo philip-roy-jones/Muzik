@@ -1,5 +1,6 @@
 package xyz.philipjones.muzik.controllers;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,6 @@ import xyz.philipjones.muzik.services.security.AuthenticationService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
 import xyz.philipjones.muzik.services.security.ServerRefreshTokenService;
 import xyz.philipjones.muzik.services.security.UserService;
-import xyz.philipjones.muzik.services.spotify.SpotifyHarvestService;
 import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
 
 import java.util.Date;
@@ -97,95 +97,123 @@ public class SecurityController {
 
             externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
-            setAccessTokenCookie(accessToken, response);
             setRefreshTokenCookie(refreshTokenObj, response);
 
-            return ResponseEntity.ok(new HashMap<>());
+            return ResponseEntity.ok(new HashMap<String, Object>() {{
+                put("accessToken", accessToken);
+                put("accessTokenExpiration", serverAccessTokenService.getAccessTokenExpirationInMs() / 1000);
+            }});
         } catch (AuthenticationException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "Invalid login credentials");
-            return ResponseEntity.status(401).body(errorResponse);
+            return ResponseEntity.status(200).body(errorResponse);
         }
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<HashMap> refresh(@CookieValue String refreshToken, HttpServletResponse response) {
-        if (refreshToken == null) {
-            HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "No refresh token provided");
-            return ResponseEntity.status(400).body(errorResponse);
-        }
+    public ResponseEntity<HashMap> refresh(@CookieValue(value = "refreshToken", required = false) String refreshToken, HttpServletResponse response) {
+        ResponseEntity<HashMap> validationResponse = validateRefreshToken(refreshToken);
+        if (validationResponse != null) return validationResponse;
 
-        if (!serverRefreshTokenService.validateRefreshToken(refreshToken)) {
-            HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Invalid refresh token, please login again");
-            return ResponseEntity.status(401).body(errorResponse);
-        }
-
+        // Grabbing attributes from refresh token
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
-        String accessToken = serverAccessTokenService.generateAccessToken(refreshTokenObj.getUsername());
+        String username = refreshTokenObj.getUsername();
+        Date oldRefreshExpiry = refreshTokenObj.getAccessExpiryDate();
+
+        // Generate new refresh and access token
+        String accessToken = serverAccessTokenService.generateAccessToken(username);
+        ServerRefreshToken newRefreshTokenObj = serverRefreshTokenService
+                .generateRefreshTokenWithExpiryDate(username, oldRefreshExpiry, accessToken);
+
+        if (newRefreshTokenObj == null) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Refresh token expired, please login again");
+            return ResponseEntity.status(200).body(errorResponse);
+        }
+
+        // Overwrite old refresh token with new refresh token
+        setRefreshTokenCookie(newRefreshTokenObj, response);
 
         // Blacklist old access token if it hasn't expired
         if (System.currentTimeMillis() < refreshTokenObj.getAccessExpiryDate().getTime()) {
             serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
         }
 
-        // Update jti in database
-        serverRefreshTokenService.setAccessJti(refreshTokenObj, accessToken);
-        serverRefreshTokenService.setAccessExpiryDate(refreshTokenObj);
-        serverRefreshTokenService.saveRefreshToken(refreshTokenObj);
+        // Delete the old refresh token
+        serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
+        // Refresh external access tokens
         externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
-        setAccessTokenCookie(accessToken, response);
-
-        return ResponseEntity.ok(new HashMap<String, String>() {{
-            put("message", "Token refreshed successfully");
+        return ResponseEntity.ok(new HashMap<String, Object>() {{
+            put("accessToken", accessToken);
+            put("accessTokenExpiration", serverAccessTokenService.getAccessTokenExpirationInMs() / 1000);
         }});
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@RequestBody HashMap<String, String> body) {
-        String refreshToken = body.get("refreshToken");
+    public ResponseEntity<HashMap> logout(@RequestHeader("Authorization") String authorizationHeader, HttpServletResponse response) {
+        // TODO: we should make this accept access token instead of refresh token
 
-        if (!serverRefreshTokenService.validateRefreshToken(refreshToken)) {
-            return ResponseEntity.status(401).body("Invalid refresh token, please login again");
-        }
-
-        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
+        String accessToken = authorizationHeader.replace("Bearer ", "");
+        Claims accessTokenClaims = serverAccessTokenService.getClaimsFromToken(accessToken);
+        String username = accessTokenClaims.getSubject();
+        Date accessTokenExpiry = accessTokenClaims.getExpiration();
+        String jti = accessTokenClaims.getId();
 
         // Blacklist old access token if it hasn't expired
-        if (System.currentTimeMillis() < refreshTokenObj.getAccessExpiryDate().getTime()) {
-            serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
+        if (System.currentTimeMillis() < accessTokenExpiry.getTime()) {
+            serverAccessTokenService.blacklistAccessToken(jti, accessTokenExpiry);
         }
 
         // Delete external access tokens
-        spotifyTokenService.deleteSpotifyAccessToken(refreshTokenObj.getUsername());
+        spotifyTokenService.deleteSpotifyAccessToken(username);
 
         // Remove refresh token from database
+        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByUsername(username);
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
-        return ResponseEntity.ok("Logout successful");
-    }
+        // Clear refresh token cookie
+        deleteRefreshTokenCookie(response);
 
-
-    private void setAccessTokenCookie(String accessToken, HttpServletResponse response) {
-        Cookie accessTokenCookie = new Cookie("accessToken", accessToken);
-        accessTokenCookie.setHttpOnly(true);
-        accessTokenCookie.setPath("/");
-        accessTokenCookie.setMaxAge((int) serverAccessTokenService.getAccessTokenExpirationInMs() / 1000); // In Seconds
-        accessTokenCookie.setSecure(true);
-        accessTokenCookie.setAttribute("SameSite", "Strict");
-        response.addCookie(accessTokenCookie);
+        return ResponseEntity.ok(new HashMap<String, Object>() {{
+            put("message", "success");
+        }});
     }
 
     private void setRefreshTokenCookie(ServerRefreshToken refreshTokenObj, HttpServletResponse response) {
-        Cookie refreshTokenCookie = new Cookie("refreshToken", serverRefreshTokenService.getRefreshToken(refreshTokenObj));
+        Cookie refreshTokenCookie = new Cookie("refreshToken",
+                refreshTokenObj != null ? serverRefreshTokenService.getRefreshToken(refreshTokenObj) : "");
+
         refreshTokenCookie.setHttpOnly(true);
         refreshTokenCookie.setPath("/");
-        refreshTokenCookie.setMaxAge((int) ((refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis()) / 1000)); // In Seconds
+        refreshTokenCookie.setMaxAge((int) (refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis()) / 1000); // In Seconds
         refreshTokenCookie.setSecure(true);
         refreshTokenCookie.setAttribute("SameSite", "Strict");
         response.addCookie(refreshTokenCookie);
+    }
+
+    private void deleteRefreshTokenCookie(HttpServletResponse response) {
+        Cookie refreshTokenCookie = new Cookie("refreshToken", "");
+
+        refreshTokenCookie.setHttpOnly(true);
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge(-1); // Setting negative max age deletes the cookie
+        refreshTokenCookie.setSecure(true);
+        refreshTokenCookie.setAttribute("SameSite", "Strict");
+        response.addCookie(refreshTokenCookie);
+    }
+
+    private ResponseEntity<HashMap> validateRefreshToken(String refreshToken) {
+        if (refreshToken == null) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "No refresh token provided");
+            return ResponseEntity.status(200).body(errorResponse);
+        } else if (!serverRefreshTokenService.validateRefreshToken(refreshToken)) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Invalid refresh token, please login");
+            return ResponseEntity.status(200).body(errorResponse);
+        }
+        return null;
     }
 }

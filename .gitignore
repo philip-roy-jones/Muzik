@@ -30,4 +30,5 @@ utf8PercentEncodingData.json
 secret.key
 keystore.jks
 certificate.crt
+certificates/
 /Tools/Test/results

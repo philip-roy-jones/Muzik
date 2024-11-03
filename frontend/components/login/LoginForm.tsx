@@ -1,33 +1,32 @@
 "use client";
 
-import axios from "axios";
-import React, {useState} from "react";
+import {useState, useContext} from "react";
+import {AuthContext} from "@/contexts/AuthContext";
+import {login} from "@/utils/authService";
 
 export default function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const authContext = useContext(AuthContext);
+
+  async function handleSubmit (e: React.FormEvent){
     e.preventDefault();
 
-    axios
-      .post("https://localhost:8443/public/login", {
-          username,
-          password,
-          rememberMe,
-        },
-        {withCredentials: true}   // Required for cookies to be sent and stored
-      )
-      .then((response) => {
-        console.log("Success:", response.data);
-      })
-      .catch((error) => {
-        console.error("Error:", error);
-      });
     console.log("Username:", username);
     console.log("Password:", password);
     console.log("Remember me:", rememberMe);
+
+    const accessToken = await login(username, password, rememberMe)
+
+    if (accessToken === null) {
+      console.error("Invalid login");
+      return;
+    } else {
+      authContext?.setAccessToken(accessToken);
+      window.location.href = "/";
+    }
   };
 
   return (

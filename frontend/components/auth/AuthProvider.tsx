@@ -1,30 +1,31 @@
 'use client';
 
-import axios from "axios";
-import { useEffect } from "react";
+import {AuthContext} from "@/contexts/AuthContext";
+import {useEffect, useState} from "react";
+import {renewTokens} from "@/utils/authService";
+import Header from "@/components/shared/Header";
 
-export default function AuthProvider() {
-  const refreshToken = async () => {
-    try {
-      const response = await axios.post(
-        "https://localhost:8443/public/refresh",
-        {},
-        {
-          withCredentials: true,
-        }
-      );
-      console.log("Refreshed token:", response.data);
-    } catch (error) {
-      console.error("Failed to refresh token:", error);
-    }
-  };
+export default function AuthProvider({children,}: Readonly<{ children: React.ReactNode; }>) {
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      await refreshToken();
+    const fetchTokens = async () => {
+      const accessToken = await renewTokens();
+
+      if (accessToken === null) {
+        console.error("Invalid refresh token");
+        return;
+      } else {
+        setAccessToken(accessToken);
+      }
     };
-    fetchData();
+    fetchTokens();
   }, []);
 
-  return null;
+  return (
+    <AuthContext.Provider value={{accessToken, setAccessToken}}>
+      <Header />
+      {children}
+    </AuthContext.Provider>
+  );
 }
