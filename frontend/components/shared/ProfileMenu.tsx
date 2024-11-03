@@ -12,11 +12,15 @@ const ProfileMenu = () => {
     setIsVisible(!isVisible);
   };
 
-
-  const {accessToken, setAccessToken} = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
+  const { accessToken, setAccessToken } = authContext || {};
   const handleLogout = async () => {
-    await logout(accessToken);  // Tells backend you are logging out
-    setAccessToken(null);     // Clears the token from memory
+    if (accessToken) {
+      await logout(accessToken);  // Tells backend you are logging out
+    }
+    if (setAccessToken) {
+      setAccessToken(null);  // Clears the token from memory
+    }
   }
 
   return (

@@ -153,8 +153,6 @@ public class SecurityController {
 
     @PostMapping("/logout")
     public ResponseEntity<HashMap> logout(@RequestHeader("Authorization") String authorizationHeader, HttpServletResponse response) {
-        // TODO: we should make this accept access token instead of refresh token
-
         String accessToken = authorizationHeader.replace("Bearer ", "");
         Claims accessTokenClaims = serverAccessTokenService.getClaimsFromToken(accessToken);
         String username = accessTokenClaims.getSubject();

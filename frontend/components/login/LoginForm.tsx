@@ -1,6 +1,7 @@
 "use client";
 
 import {useState, useContext} from "react";
+import {useRouter} from "next/navigation";
 import {AuthContext} from "@/contexts/AuthContext";
 import {login} from "@/utils/authService";
 
@@ -10,6 +11,7 @@ export default function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
 
   const authContext = useContext(AuthContext);
+  const router = useRouter();
 
   async function handleSubmit (e: React.FormEvent){
     e.preventDefault();
@@ -25,7 +27,7 @@ export default function LoginForm() {
       return;
     } else {
       authContext?.setAccessToken(accessToken);
-      window.location.href = "/";
+      await router.push("/");
     }
   };
 

@@ -18,7 +18,7 @@ export const login = async (username: string, password: string, rememberMe: bool
   return handleResponse(response);
 }
 
-export const logout = async (accessToken): Promise<void> => {
+export const logout = async (accessToken: string): Promise<void> => {
   await axios.post("https://localhost:8443/public/logout", {/* Empty Body */}, {
     withCredentials: true,
     headers: {
