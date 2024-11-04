@@ -168,7 +168,9 @@ public class SecurityController {
         spotifyTokenService.deleteSpotifyAccessToken(username);
 
         // Remove refresh token from database
-        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByUsername(username);
+
+        // TODO: Finding by username when user uses multiple devices/logins does not work
+        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByAccessJti(jti);
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
         // Clear refresh token cookie

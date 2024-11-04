@@ -32,7 +32,7 @@ const ProfileMenu = () => {
         <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-lg">
           <ul>
             <li>
-              <Link href="/profile" className="block px-4 py-2 hover:bg-gray-200">
+              <Link href="/profile" className="block text-left px-4 py-2 hover:bg-gray-200">
                 Show Profile
               </Link>
             </li>

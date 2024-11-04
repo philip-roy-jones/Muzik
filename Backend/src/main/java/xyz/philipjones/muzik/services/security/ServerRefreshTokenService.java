@@ -111,8 +111,8 @@ public class ServerRefreshTokenService {
         return serverRefreshTokenRepository.findByToken(refreshToken).orElseThrow(() -> new RuntimeException("Refresh token not found"));
     }
 
-    public ServerRefreshToken findByUsername(String username) {
-        return serverRefreshTokenRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Refresh token not found"));
+    public ServerRefreshToken findByAccessJti(String accessJti) {
+        return serverRefreshTokenRepository.findByAccessJti(stringEncryptor.encrypt(accessJti)).orElseThrow(() -> new RuntimeException("Refresh token not found"));
     }
 
     public boolean saveRefreshToken(ServerRefreshToken refreshToken) {

@@ -74,6 +74,7 @@ public class ServerAccessTokenService {
                 return false; // Token is expired
             }
 
+            // TODO: Change to if the access token is in Redis = valid
             // Validating blacklist
             if (Boolean.TRUE.equals(redisService.hasKey("serverAccessToken:blacklist:" + stringEncryptor.encrypt(claims.getId())))) {
                 return false;
