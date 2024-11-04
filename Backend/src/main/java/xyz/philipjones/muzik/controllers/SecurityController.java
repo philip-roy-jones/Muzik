@@ -169,7 +169,6 @@ public class SecurityController {
 
         // Remove refresh token from database
 
-        // TODO: Finding by username when user uses multiple devices/logins does not work
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByAccessJti(jti);
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 

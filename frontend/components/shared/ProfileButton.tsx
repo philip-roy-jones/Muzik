@@ -9,9 +9,6 @@ export default function ProfileButton () {
   const authContext = useContext(AuthContext);
   const accessToken = authContext ? authContext.accessToken : null;
 
-  // TODO: Broadcast channel to sync access token between tabs
-  //  First - Checks if there are any tabs with a valid access token
-  //  Second - If there are no tabs with a valid access token, then it will renew the access token
   return (
     <>
       <p>{accessToken}</p>

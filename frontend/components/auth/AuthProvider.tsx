@@ -1,16 +1,19 @@
 'use client';
 
 import {AuthContext} from "@/contexts/AuthContext";
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {renewTokens} from "@/utils/authService";
 import Header from "@/components/shared/Header";
 
 export default function AuthProvider({children,}: Readonly<{ children: React.ReactNode; }>) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const channel = new BroadcastChannel('auth_channel');
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
     // Listener for receiving tokens from other tabs
+    const channel = new BroadcastChannel('auth_channel');
+    channelRef.current = channel;
+
     channel.onmessage = (event) => {
       const { type, token } = event.data;
       if (type === 'update_token' && token) {
@@ -23,12 +26,32 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
     // Fetches the token from the server if it is not set
     const fetchOrBroadcastTokens = async () => {
       if (!accessToken) {
-        const newAccessToken = await renewTokens();
-        if (newAccessToken) {
-          setAccessToken(newAccessToken);
-          channel.postMessage({type: 'update_token', token: newAccessToken});
+
+        // Check if another tab has already set the token
+        let tokenFromChannel: string | null = null;
+        const tokenListener = (event: MessageEvent) => {
+          if (event.data.type === 'update_token' && event.data.token) {
+            tokenFromChannel = event.data.token;
+          }
+        };
+        channel.addEventListener('message', tokenListener);
+
+        // Wait a short period to see if another tab broadcasts the token
+        await new Promise(resolve => setTimeout(resolve, 500));
+        channel.removeEventListener('message', tokenListener);
+
+        if (tokenFromChannel) {
+          setAccessToken(tokenFromChannel);
         } else {
-          console.log("Invalid refresh token")
+          const newAccessToken = await renewTokens();
+          if (newAccessToken) {
+            setAccessToken(newAccessToken);
+            if (channelRef.current) {
+              channelRef.current.postMessage({type: 'update_token', token: newAccessToken});
+            }
+          } else {
+            console.log("Invalid refresh token")
+          }
         }
       }
     };
@@ -38,10 +61,14 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
     // Sync access token whenever it changes
     const broadcastAccessToken = () => {
       if (accessToken) {
-        channel.postMessage({type: 'update_token', token: accessToken});
+        if (channelRef.current) {
+          channelRef.current.postMessage({type: 'update_token', token: accessToken});
+        }
       } else {
         // If accessToken is null, broadcast logout
-        channel.postMessage({ type: 'logout' });
+        if (channelRef.current) {
+          channelRef.current.postMessage({ type: 'logout' });
+        }
       }
     };
 
@@ -49,7 +76,10 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
 
     // Clean up Broadcast Channel on unmount
     return () => {
-      channel.close();
+      if (channelRef.current) {
+        channelRef.current.close();
+        channelRef.current = null;
+      }
     };
   }, [accessToken]);
 
