@@ -2,92 +2,83 @@
 
 import {AuthContext} from "@/contexts/AuthContext";
 import {useEffect, useRef, useState} from "react";
+import {useBroadcastChannel} from "@/hooks/useBroadcastChannel";
 import {renewTokens} from "@/utils/authService";
 import Header from "@/components/shared/Header";
 
 export default function AuthProvider({children,}: Readonly<{ children: React.ReactNode; }>) {
+  const isInitialRender = useRef(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const channelRef = useRef<BroadcastChannel | null>(null);
+  const [isBroadcastUpdate, setIsBroadcastUpdate] = useState(false); // Track if update came from broadcast
 
+
+  // Custom BroadcastChannel message handler with proper typing
+  const handleBroadcastMessage = (event: MessageEvent) => {
+    const {type, token} = event.data as { type: string; token?: string };
+    console.log(`Received message: ${type} with token: ${token}`);
+    if (type === "update_token" && token) {
+      setAccessToken(token);
+      setIsBroadcastUpdate(true);
+    } else if (type === "logout") {
+      setAccessToken(null);
+      setIsBroadcastUpdate(true);
+    }
+  };
+
+  const channel = useBroadcastChannel("auth_channel", handleBroadcastMessage);
+
+  // Only run on first render, fetches access token
   useEffect(() => {
-    // Listener for receiving tokens from other tabs
-    const channel = new BroadcastChannel('auth_channel');
-    channelRef.current = channel;
-
-    channel.onmessage = (event) => {
-      const { type, token } = event.data;
-      if (type === 'update_token' && token) {
-        setAccessToken(token); // Set the token received from other tabs
-      } else if (type === 'logout') {
-        setAccessToken(null); // Clear the token on logout
-      }
-    };
+    if (!channel) {
+      console.log("Channel not set");
+      return
+    }
 
     // Fetches the token from the server if it is not set
-    const fetchOrBroadcastTokens = async () => {
-      if (!accessToken) {
-
-        // Check if another tab has already set the token
-        let tokenFromChannel: string | null = null;
-        const tokenListener = (event: MessageEvent) => {
-          if (event.data.type === 'update_token' && event.data.token) {
-            tokenFromChannel = event.data.token;
-          }
-        };
-        channel.addEventListener('message', tokenListener);
-
-        // Wait a short period to see if another tab broadcasts the token
-        await new Promise(resolve => setTimeout(resolve, 500));
-        channel.removeEventListener('message', tokenListener);
-
-        if (tokenFromChannel) {
-          setAccessToken(tokenFromChannel);
-        } else {
-          const newAccessToken = await renewTokens();
-          if (newAccessToken) {
-            setAccessToken(newAccessToken);
-            if (channelRef.current) {
-              channelRef.current.postMessage({type: 'update_token', token: newAccessToken});
-            }
-          } else {
-            console.log("Invalid refresh token")
-          }
-        }
-      }
-    };
-
-    fetchOrBroadcastTokens();
-
-    // Sync access token whenever it changes
-    const broadcastAccessToken = () => {
+    const fetchTokens = async () => {
+      const accessToken = await renewTokens();
       if (accessToken) {
-        if (channelRef.current) {
-          channelRef.current.postMessage({type: 'update_token', token: accessToken});
-        }
+        setAccessToken(accessToken);
       } else {
-        // If accessToken is null, broadcast logout
-        if (channelRef.current) {
-          channelRef.current.postMessage({ type: 'logout' });
-        }
+        setAccessToken(null);
       }
-    };
+    }
 
-    broadcastAccessToken(); // Call this whenever the access token changes
+    fetchTokens();
 
-    // Clean up Broadcast Channel on unmount
-    return () => {
-      if (channelRef.current) {
-        channelRef.current.close();
-        channelRef.current = null;
+  }, [])
+
+  // Login/Logout Broadcast Hook
+  useEffect(() => {
+    if (isInitialRender.current) {
+      isInitialRender.current = false; // Skip on first render
+      return;
+    }
+
+    if (isBroadcastUpdate) {
+      // If the update was caused by a broadcast, don't execute the broadcast action
+      setIsBroadcastUpdate(false); // Reset the flag
+      return;
+    }
+
+    if (accessToken) {
+      console.log("User logged in, broadcasting access token");
+      if (channel) {
+        channel.postMessage({type: "update_token", token: accessToken});
       }
-    };
+    } else {
+      console.log("User logged out, broadcasting logout");
+      if (channel) {
+        channel.postMessage({type: "logout"});
+      }
+    }
   }, [accessToken]);
 
   // TODO: Block all routes until accessToken is set (except login and register)
   //    Block login and register if accessToken is set
   return (
     <AuthContext.Provider value={{accessToken, setAccessToken}}>
-      <Header />
+      <Header/>
       {children}
     </AuthContext.Provider>
   );

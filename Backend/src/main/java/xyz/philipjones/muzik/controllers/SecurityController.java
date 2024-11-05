@@ -114,7 +114,7 @@ public class SecurityController {
     public ResponseEntity<HashMap> refresh(@CookieValue(value = "refreshToken", required = false) String refreshToken, HttpServletResponse response) {
         ResponseEntity<HashMap> validationResponse = validateRefreshToken(refreshToken);
         if (validationResponse != null) return validationResponse;
-
+        System.out.println("Refresh token Right before the search: " + refreshToken);
         // Grabbing attributes from refresh token
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
         String username = refreshTokenObj.getUsername();
