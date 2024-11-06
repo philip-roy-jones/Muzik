@@ -15,7 +15,7 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
   // Custom BroadcastChannel message handler with proper typing
   const handleBroadcastMessage = (event: MessageEvent) => {
     const {type, token} = event.data as { type: string; token?: string };
-    console.log(`Received message: ${type} with token: ${token}`);
+    // console.log(`Received message: ${type} with token: ${token}`);
     if (type === "update_token" && token) {
       setAccessToken(token);
       setIsBroadcastUpdate(true);
@@ -28,24 +28,31 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
   const channel = useBroadcastChannel("auth_channel", handleBroadcastMessage);
 
   // Only run on first render, fetches access token
+  // Access token is stored in memory, so by default it will be null every time the page is refreshed/newly opened
   useEffect(() => {
-    if (!channel) {
-      console.log("Channel not set");
-      return
-    }
-
-    // Fetches the token from the server if it is not set
     const fetchTokens = async () => {
-      const accessToken = await renewTokens();
-      if (accessToken) {
-        setAccessToken(accessToken);
-      } else {
-        setAccessToken(null);
+      const fetchingFlagKey = "isFetchingToken";
+      const isFetching = localStorage.getItem(fetchingFlagKey);
+
+      // Prevent multiple fetches, if another tab is already fetching, wait for the broadcast
+      if (isFetching && isFetching === "true") {
+        return;
+      }
+
+      localStorage.setItem(fetchingFlagKey, "true");
+
+      try {
+        const accToken = await renewTokens();
+        if (accToken) {
+          setAccessToken(accToken);
+        } else {
+          setAccessToken(null);
+        }
+      } finally {
+        localStorage.setItem(fetchingFlagKey, "false");
       }
     }
-
     fetchTokens();
-
   }, [])
 
   // Login/Logout Broadcast Hook
@@ -62,12 +69,12 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
     }
 
     if (accessToken) {
-      console.log("User logged in, broadcasting access token");
+      // console.log("User logged in, broadcasting access token");
       if (channel) {
         channel.postMessage({type: "update_token", token: accessToken});
       }
     } else {
-      console.log("User logged out, broadcasting logout");
+      // console.log("User logged out, broadcasting logout");
       if (channel) {
         channel.postMessage({type: "logout"});
       }
