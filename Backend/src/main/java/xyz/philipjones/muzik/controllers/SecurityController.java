@@ -118,7 +118,7 @@ public class SecurityController {
         // Grabbing attributes from refresh token
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
         String username = refreshTokenObj.getUsername();
-        Date oldRefreshExpiry = refreshTokenObj.getAccessExpiryDate();
+        Date oldRefreshExpiry = refreshTokenObj.getExpiryDate();
 
         // Generate new refresh and access token
         String accessToken = serverAccessTokenService.generateAccessToken(username);
