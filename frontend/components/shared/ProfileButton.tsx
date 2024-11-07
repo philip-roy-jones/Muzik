@@ -11,7 +11,6 @@ export default function ProfileButton () {
 
   return (
     <>
-      <p>{accessToken}</p>
       {accessToken ? (<ProfileMenu />) : (
         <Link href="/login" className="text-blue-600 underline">
           Login

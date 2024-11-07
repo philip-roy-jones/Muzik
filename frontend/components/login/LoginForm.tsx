@@ -13,20 +13,24 @@ export default function LoginForm() {
   const authContext = useContext(AuthContext);
   const router = useRouter();
 
-  async function handleSubmit (e: React.FormEvent){
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     console.log("Username:", username);
     console.log("Password:", password);
     console.log("Remember me:", rememberMe);
 
-    const accessToken = await login(username, password, rememberMe)
+    const responseObject = await login(username, password, rememberMe)
 
-    if (accessToken === null) {
+    if (!responseObject) {
       console.error("Invalid login");
       return;
     } else {
-      authContext?.setAccessToken(accessToken);
+      const {accToken, expSeconds} = responseObject;
+      const expiryDate = new Date(Date.now() + Number(expSeconds) * 1000);
+      console.log(expiryDate);
+      authContext?.setExpiryDate(expiryDate);
+      authContext?.setAccessToken(accToken);
       await router.push("/");
     }
   };

@@ -153,6 +153,8 @@ public class SecurityController {
 
     @PostMapping("/logout")
     public ResponseEntity<HashMap> logout(@RequestHeader("Authorization") String authorizationHeader, HttpServletResponse response) {
+        // TODO: Use refresh token cookie instead, access token does not function well when it has expired
+
         String accessToken = authorizationHeader.replace("Bearer ", "");
         Claims accessTokenClaims = serverAccessTokenService.getClaimsFromToken(accessToken);
         String username = accessTokenClaims.getSubject();
