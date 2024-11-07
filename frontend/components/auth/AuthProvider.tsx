@@ -104,14 +104,15 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
       }
     }
 
-    // If no response is received within 500 ms
+    // If no response is received within 100 ms, client hardware dependent
     setTimeout(() => {
       console.log(`Access Token: ${accessToken}`)
       if (!accessTokenRef.current) {
-        console.log("No token received, fetching...");
+        // TODO: This will try even when user is not logged in, maybe have something in localstorage indicating
+        //  if user is logged in?
         fetchTokens();
       }
-    }, 5000);
+    }, 100);
 
   }, []);
 
