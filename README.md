@@ -1,1 +1,1 @@
-# I AM THE MUZIK
+# This is the auth system for Muzik which is developed separately to deliver a minimum value product.

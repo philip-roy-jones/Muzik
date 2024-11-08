@@ -6,6 +6,8 @@ interface AuthContextType {
 
   expiryDate: Date | null;
   setExpiryDate: React.Dispatch<React.SetStateAction<Date | null>>;
+
+  accessTokenRef: React.MutableRefObject<string | null>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);

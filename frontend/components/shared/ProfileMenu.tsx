@@ -4,16 +4,18 @@ import {useState, useContext} from "react";
 import Link from "next/link";
 import {logout} from "@/utils/authService";
 import {AuthContext} from "@/contexts/AuthContext";
+import { useRouter } from 'next/navigation';
 
 const ProfileMenu = () => {
   const [isVisible, setIsVisible] = useState(false);
+  const router = useRouter();
 
   const toggleMenu = () => {
     setIsVisible(!isVisible);
   };
 
   const authContext = useContext(AuthContext);
-  const { accessToken, setAccessToken, setExpiryDate } = authContext || {};
+  const { accessToken, setAccessToken, setExpiryDate, accessTokenRef } = authContext || {};
   const handleLogout = async () => {
     if (accessToken) {
       await logout(accessToken);  // Tells backend you are logging out
@@ -21,9 +23,13 @@ const ProfileMenu = () => {
     if (setAccessToken) {
       setAccessToken(null);  // Clears the token from memory
     }
+    if (accessTokenRef) {
+      accessTokenRef.current = null;
+    }
     if (setExpiryDate) {
       setExpiryDate(null);  // Clears the expiry date from memory
     }
+    router.push('/login');
   }
 
   return (
