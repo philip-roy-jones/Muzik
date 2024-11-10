@@ -1,1 +1,1 @@
-# This is the auth system for Muzik which is developed separately to deliver a minimum value product.
+# Get random Spotify songs/albums/artists to listen to!
