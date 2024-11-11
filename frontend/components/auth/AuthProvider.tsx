@@ -1,7 +1,7 @@
 'use client';
 
 import {AuthContext} from "@/contexts/AuthContext";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useRef} from "react";
 import Header from "@/components/shared/Header";
 import {v4 as uuidv4} from 'uuid';
 import {useToken} from "@/hooks/useToken";
@@ -10,18 +10,17 @@ import { useAuthRedirect } from '@/hooks/useAuthRedirect';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function AuthProvider({children,}: Readonly<{ children: React.ReactNode; }>) {
-  const {accessToken, setAccessToken, expiryDate, setExpiryDate, fetchTokens, accessTokenRef} = useToken();
+  const {isLoggedIn, setIsLoggedIn, expiryDate, setExpiryDate, initTokens} = useToken();
   const router = useRouter();
   const pathname = usePathname();
   const isInitialRender = useRef(true);
   const tabUUID = uuidv4();
 
-  const {isBroadcastUpdate, setIsBroadcastUpdate, publicChannel} = useAuthBroadcastHandlers(
+  const {publicChannel} = useAuthBroadcastHandlers(
     tabUUID,
-    accessToken,
-    accessTokenRef,
+    isLoggedIn,
     expiryDate,
-    setAccessToken,
+    setIsLoggedIn,
     setExpiryDate
   );
 
@@ -33,8 +32,8 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
 
     // If no response is received within 100 ms, fetch new token. This is client hardware dependent.
     setTimeout(() => {
-      if (!accessTokenRef.current) {
-        fetchTokens()
+      if (!isLoggedIn) {
+        initTokens();
       }
     }, 100);
 
@@ -50,23 +49,17 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
       return;
     }
 
-    if (isBroadcastUpdate) {
-      // If the update was caused by a broadcast, don't execute the broadcast action
-      setIsBroadcastUpdate(false); // Reset the flag
-      return;
-    }
-
-    if (accessToken) {
-      if (publicChannel) publicChannel.postMessage({type: "login", token: accessToken, expDate: expiryDate});
+    if (isLoggedIn) {
+      if (publicChannel) publicChannel.postMessage({type: "login", loginStatus: isLoggedIn, expDate: expiryDate});
     } else {
       if (publicChannel) publicChannel.postMessage({type: "logout"});
     }
-  }, [accessToken]);
+  }, [isLoggedIn]);
 
-  useAuthRedirect(accessTokenRef, pathname, router);
+  useAuthRedirect(isLoggedIn, pathname, router);
 
   return (
-    <AuthContext.Provider value={{accessToken, setAccessToken, expiryDate, setExpiryDate, accessTokenRef}}>
+    <AuthContext.Provider value={{isLoggedIn, setIsLoggedIn, expiryDate, setExpiryDate}}>
       <Header/>
       {children}
     </AuthContext.Provider>

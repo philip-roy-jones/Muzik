@@ -7,11 +7,11 @@ import { AuthContext } from "@/contexts/AuthContext";
 
 export default function ProfileButton () {
   const authContext = useContext(AuthContext);
-  const accessToken = authContext ? authContext.accessToken : null;
+  const isLoggedIn = authContext?.isLoggedIn ?? false;
 
   return (
     <>
-      {accessToken ? (<ProfileMenu />) : (
+      {isLoggedIn ? (<ProfileMenu />) : (
         <Link href="/login" className="text-blue-600 underline">
           Login
         </Link>

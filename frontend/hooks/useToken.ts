@@ -1,37 +1,34 @@
-import {useRef, useState} from "react";
-import {renewTokens} from "@/utils/authService";
+import {useState} from "react";
+import {checkTokens} from "@/utils/authService";
 
 export function useToken() {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const accessTokenRef = useRef<string | null>(null); // Ref to store the latest token without causing re-renders
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
 
-  const fetchTokens = async () => {
-    const fetchingFlagKey = "isFetchingToken";
-    const isFetching = localStorage.getItem(fetchingFlagKey);
+  const initTokens = async () => {
+    const checkingFlagKey = "isCheckingTokens";
+    const isChecking = localStorage.getItem(checkingFlagKey);
 
     // Prevent multiple fetches, if another tab is already fetching, wait for the broadcast
-    if (isFetching && isFetching === "true") {
+    if (isChecking && isChecking === "true") {
       return;
     }
 
-    localStorage.setItem(fetchingFlagKey, "true");
+    localStorage.setItem(checkingFlagKey, "true");
 
     try {
-      const responseObject = await renewTokens();
+      const responseObject = await checkTokens();
       if (responseObject) {
-        const {accToken, expSeconds} = responseObject;
+        const {expSeconds, loginStatus} = responseObject;
         setExpiryDate(new Date(Date.now() + expSeconds * 1000));
-        setAccessToken(accToken);
-        accessTokenRef.current = accToken;
+        setIsLoggedIn(loginStatus);
       } else {
-        setAccessToken(null);
-        accessTokenRef.current = null;
+        setIsLoggedIn(false);
       }
     } finally {
-      localStorage.setItem(fetchingFlagKey, "false");
+      localStorage.setItem(checkingFlagKey, "false");
     }
   };
 
-  return { accessToken, setAccessToken, expiryDate, setExpiryDate, fetchTokens, accessTokenRef };
+  return { isLoggedIn, setIsLoggedIn, expiryDate, setExpiryDate, initTokens };
 }

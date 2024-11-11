@@ -11,8 +11,6 @@ import xyz.philipjones.muzik.config.ObjectIdSerializer;
 
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 
 @Document(collection = "users")
 public class User {
@@ -27,7 +25,7 @@ public class User {
     private String password;  // Stores hashed passwords
     private Date createdAt;
     private Date updatedAt;
-    private Set<String> roles = new HashSet<>();
+    private String role;
     private HashMap<String, HashMap<String, Object>> connections;
     private String verificationCode;
     private Date verificationCodeExpiry;
@@ -36,7 +34,7 @@ public class User {
     public User() {
         // Default constructor
         this.connections = new HashMap<String, HashMap<String, Object>>();
-        this.roles = new HashSet<>();
+        this.role = "unverified";
     }
 
     public ObjectId getId() {
@@ -87,12 +85,12 @@ public class User {
         this.updatedAt = updatedAt;
     }
 
-    public Set<String> getRoles() {
-        return roles;
+    public String getRole() {
+        return role;
     }
 
-    public void setRoles(Set<String> roles) {
-        this.roles = roles;
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public HashMap<String, HashMap<String, Object>> getConnections() {

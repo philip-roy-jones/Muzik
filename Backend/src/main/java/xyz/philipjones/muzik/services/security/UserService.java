@@ -43,7 +43,6 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.getRoles().add("unverified");
 
         try {
             userRepository.save(user);
@@ -59,8 +58,7 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByUsername(username);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            user.getRoles().remove("unverified");
-            user.getRoles().add("user");
+            user.setRole("user");
             userRepository.save(user);
             return true;
         }

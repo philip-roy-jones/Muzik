@@ -1,54 +1,46 @@
-import {useState} from "react";
 import {useBroadcastChannel} from "@/hooks/useBroadcastChannel";
 
 export function useAuthBroadcastHandlers(
   tabUUID: string,
-  accessToken: string | null,
-  accessTokenRef: React.MutableRefObject<string | null>,
+  isLoggedIn: boolean,
   expiryDate: Date | null,
-  setAccessToken: (token: string | null) => void,
+  setIsLoggedIn: (isLoggedIn: boolean) => void,
   setExpiryDate: (date: Date | null) => void,
 ) {
-  const [isBroadcastUpdate, setIsBroadcastUpdate] = useState(false); // Track if update came from broadcast
 
   // Custom BroadcastChannel message handler with proper typing
   const handlePublicBroadcast = (event: MessageEvent) => {
-    const {type, token, tabUUID: requestingTabUUID, expDate} = event.data as {
+    const {type, loginStatus, tabUUID: requestingTabUUID, expDate} = event.data as {
       type: string;
-      token?: string;
+      loginStatus?: boolean;
       tabUUID?: string;
       expDate?: Date
     };
     console.log(`Received message: ${type}`);
-    if (type === "login" && token) {
+    if (type === "login" && loginStatus) {
+      setIsLoggedIn(true);
       if (expDate) {
         setExpiryDate(expDate);
       }
-      setAccessToken(token);
-      setIsBroadcastUpdate(true);
     } else if (type === "logout") {
       setExpiryDate(null);
-      setAccessToken(null);
-      setIsBroadcastUpdate(true);
-    } else if (type === "request_token" && accessToken) {
+      setIsLoggedIn(false);
+    } else if (type === "request_token" && isLoggedIn) {
       const tempChannel = new BroadcastChannel(`private_channel_${requestingTabUUID}`);
-      tempChannel.postMessage({type: "login", token: accessToken, expDate: expiryDate});
+      tempChannel.postMessage({type: "login", loginStatus: true, expDate: expiryDate});
       tempChannel.close();
     }
   };
 
   const handlePrivateBroadcast = (event: MessageEvent) => {
-    const {type, token, expDate} = event.data as { type: string; token: string; expDate: Date };
+    const {type, loginStatus, expDate} = event.data as { type: string; loginStatus: boolean; expDate: Date };
     // console.log(`Received private message: ${type} with token: ${token}`);
-    if (type === "login" && token) {
+    if (type === "login") {
       // If the new expiry date is longer than the current one, or if there is no expiry date, update it
       if ((expiryDate && expiryDate < expDate) || !expiryDate) {
         setExpiryDate(expDate);
       }
-      setAccessToken(token);
-      accessTokenRef.current = token;
-      console.log(`Access Token has been set`);
-      setIsBroadcastUpdate(true);
+      setIsLoggedIn(loginStatus);
     }
   }
 
@@ -57,5 +49,5 @@ export function useAuthBroadcastHandlers(
   // Private channel only for receiving, so it has no usages
   const privateChannel = useBroadcastChannel(`private_channel_${tabUUID}`, handlePrivateBroadcast);
 
-  return { isBroadcastUpdate, setIsBroadcastUpdate, publicChannel };
+  return { publicChannel };
 }

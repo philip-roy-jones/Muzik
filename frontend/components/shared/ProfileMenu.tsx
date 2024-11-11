@@ -15,17 +15,15 @@ const ProfileMenu = () => {
   };
 
   const authContext = useContext(AuthContext);
-  const { accessToken, setAccessToken, setExpiryDate, accessTokenRef } = authContext || {};
+  const { isLoggedIn, setIsLoggedIn, setExpiryDate } = authContext || {};
   const handleLogout = async () => {
-    if (accessToken) {
-      await logout(accessToken);  // Tells backend you are logging out
+    if (isLoggedIn) {
+      await logout();  // Tells backend you are logging out
     }
-    if (setAccessToken) {
-      setAccessToken(null);  // Clears the token from memory
+    if (setIsLoggedIn) {
+      setIsLoggedIn(false);  // Clears the token from memory
     }
-    if (accessTokenRef) {
-      accessTokenRef.current = null;
-    }
+
     if (setExpiryDate) {
       setExpiryDate(null);  // Clears the expiry date from memory
     }

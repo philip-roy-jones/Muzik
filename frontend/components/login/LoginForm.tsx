@@ -22,10 +22,10 @@ export default function LoginForm() {
       console.error("Invalid login");
       return;
     } else {
-      const {accToken, expSeconds} = responseObject;
+      const {loginStatus, expSeconds} = responseObject;
       const expiryDate = new Date(Date.now() + Number(expSeconds) * 1000);
       authContext?.setExpiryDate(expiryDate);
-      authContext?.setAccessToken(accToken);
+      authContext?.setIsLoggedIn(loginStatus);
       await router.push("/");
     }
   };

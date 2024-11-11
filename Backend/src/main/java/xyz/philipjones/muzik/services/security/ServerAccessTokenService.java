@@ -35,6 +35,8 @@ public class ServerAccessTokenService {
     }
 
     public String generateAccessToken(String username) {
+        // TODO: Add the user's roles to the claims, maybe we should pass in User object instead
+
         Map<String, Object> claims = new HashMap<>();
         claims.put("iss", ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString());  // Sets the issuer (iss) claim to the current server's URI
         claims.put("sub", username);                                                                    // Cont.: this avoids hardcoding the server URI

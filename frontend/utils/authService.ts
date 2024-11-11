@@ -1,8 +1,13 @@
 import axios, {AxiosResponse} from "axios";
 
 interface TokenResponse {
-  accToken: string,
   expSeconds: number,
+  loginStatus: boolean
+}
+
+export const checkTokens = async () => {
+  const response = await axios.get("https://localhost:8443/public/check", {withCredentials: true});
+  return handleResponse(response);
 }
 
 export const renewTokens = async (): Promise<TokenResponse|null> => {
@@ -23,12 +28,9 @@ export const login = async (username: string, password: string, rememberMe: bool
   return handleResponse(response);
 }
 
-export const logout = async (accessToken: string): Promise<void> => {
+export const logout = async (): Promise<void> => {
   await axios.post("https://localhost:8443/public/logout", {/* Empty Body */}, {
-    withCredentials: true,
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
+    withCredentials: true
   });
 }
 
@@ -37,7 +39,10 @@ function handleResponse(response: AxiosResponse): TokenResponse | null {
     if (response.data.error) {
       return null;
     } else {
-      return {accToken: response.data.accessToken, expSeconds: response.data.accessTokenExpiration};
+      return {
+        expSeconds: response.data.accessTokenExpiration,
+        loginStatus: response.data.isLoggedIn
+      };
     }
   } else if (response.status === 400 || response.status === 401) {
     throw new Error("Error: Bad Request");

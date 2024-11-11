@@ -1,13 +1,11 @@
 import {createContext} from "react";
 
 interface AuthContextType {
-  accessToken: string | null;
-  setAccessToken: React.Dispatch<React.SetStateAction<string | null>>;
+  isLoggedIn: boolean;
+  setIsLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;
 
   expiryDate: Date | null;
   setExpiryDate: React.Dispatch<React.SetStateAction<Date | null>>;
-
-  accessTokenRef: React.MutableRefObject<string | null>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
