@@ -22,6 +22,7 @@ import org.springframework.security.oauth2.server.resource.introspection.NimbusO
 import org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import xyz.philipjones.muzik.interceptors.SpotifyAccessTokenInterceptor;
 import xyz.philipjones.muzik.repositories.UserRepository;
 import xyz.philipjones.muzik.security.JwtAuthenticationFilter;
 import xyz.philipjones.muzik.services.security.CustomUserDetailsService;
@@ -35,11 +36,14 @@ public class SecurityConfig {
 
     private final UserRepository userRepository;
     private final ServerAccessTokenService serverAccessTokenService;
+    private final SpotifyAccessTokenInterceptor spotifyAccessTokenInterceptor;
 
     @Autowired
-    public SecurityConfig(UserRepository userRepository, ServerAccessTokenService serverAccessTokenService) {
+    public SecurityConfig(UserRepository userRepository, ServerAccessTokenService serverAccessTokenService,
+                          SpotifyAccessTokenInterceptor spotifyAccessTokenInterceptor) {
         this.userRepository = userRepository;
         this.serverAccessTokenService = serverAccessTokenService;
+        this.spotifyAccessTokenInterceptor = spotifyAccessTokenInterceptor;
     }
 
     @Bean
@@ -96,7 +100,6 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(serverAccessTokenService), UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 

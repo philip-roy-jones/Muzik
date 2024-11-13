@@ -90,12 +90,6 @@ public class SpotifyController {
 
         HashMap randomTrack = makeRandomSearch(username, "track");
 
-        if (randomTrack == null) {
-            HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "No valid Spotify access token found");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
-
         spotifyCollectionService.createAndSaveTrackWithAlbumAndArtists(randomTrack);
 
         return ResponseEntity.ok(randomTrack);
@@ -107,12 +101,6 @@ public class SpotifyController {
 
         HashMap randomAlbum = makeRandomAlbumSearch(username);
 
-        if (randomAlbum == null) {
-            HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "No valid Spotify access token found");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
-
         return ResponseEntity.ok(randomAlbum);
     }
 
@@ -121,12 +109,6 @@ public class SpotifyController {
         String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
 
         HashMap randomArtist = makeRandomSearch(username, "artist");
-
-        if (randomArtist == null) {
-            HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "No valid Spotify access token found");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
 
         return ResponseEntity.ok(randomArtist);
     }
@@ -153,10 +135,6 @@ public class SpotifyController {
         offset = random.nextInt(Integer.parseInt(poppedItem.get(1)));
 
         HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), type, limit, offset, "audio", username);
-
-        if (spotifyResponse == null) {
-            return null;
-        }
 
         HashMap result = (HashMap) spotifyResponse.get(type + "s");
         ArrayList items = (ArrayList) result.get("items");
@@ -193,11 +171,6 @@ public class SpotifyController {
             }
 
             HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), "album", limit, offset, "audio", username);
-
-            if (spotifyResponse == null) {
-                return null;
-            }
-
             HashMap result = (HashMap) spotifyResponse.get("albums");
             items = (ArrayList) result.get("items");
 
