@@ -73,6 +73,10 @@ public class SpotifyHarvestService {
             while (totalResults == 0) {
                 randomString = randomStringService.generateRandomString(unicodeScriptService.generateRandomScript());
                 response = spotifyRequestService.search(randomString, type, 1, 0, "audio", username);
+                if (response == null) {
+                    return;
+                }
+
                 tracks = (Map<String, Object>) response.get(type + "s");
                 totalResults = (int) tracks.get("total");
 

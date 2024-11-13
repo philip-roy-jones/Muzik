@@ -3,18 +3,13 @@ package xyz.philipjones.muzik.controllers;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.catalina.Server;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.View;
-import xyz.philipjones.muzik.models.security.LoginRequest;
-import xyz.philipjones.muzik.models.security.RegistrationRequest;
+import xyz.philipjones.muzik.models.security.*;
 // TODO: Remove this import below, use the service instead
-import xyz.philipjones.muzik.models.security.ServerRefreshToken;
-import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.services.security.ExternalAccessTokenService;
 import xyz.philipjones.muzik.services.security.AuthenticationService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
@@ -24,6 +19,7 @@ import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
 
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
 @RestController
 @RequestMapping("/public")
@@ -88,16 +84,22 @@ public class SecurityController {
     public ResponseEntity<HashMap> login(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
         try {
             Authentication authentication = authenticationService.authenticate(loginRequest);
-            System.out.println(authentication);
-            // TODO: Get user object from authentication and pass it to generateAccessToken
+
             if (!authentication.isAuthenticated()) {
                 HashMap<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("error", "Cannot authenticate user");
                 return ResponseEntity.status(500).body(errorResponse);
             }
 
-            String accessToken = serverAccessTokenService.generateAccessToken(authentication.getName());
-            ServerRefreshToken refreshTokenObj = serverRefreshTokenService.generateRefreshToken(authentication.getName(), loginRequest.isRememberMe(), accessToken);
+            String username = authentication.getName();
+
+            List<UserRole> roles = userService.getRolesByUsername(username);
+
+            String accessToken = serverAccessTokenService.generateAccessToken(username, roles);
+            ServerRefreshToken refreshTokenObj = serverRefreshTokenService.generateRefreshToken(username, loginRequest.isRememberMe(), accessToken);
+
+            // Caching the most recent access token in Redis
+            serverAccessTokenService.cacheAccessToken(serverAccessTokenService.getClaimsFromToken(accessToken).getId());
 
             externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
@@ -115,28 +117,7 @@ public class SecurityController {
         }
     }
 
-    @PostMapping("/refresh")    // Frontend refresh nearing expiration
-    public ResponseEntity<HashMap> refresh(@CookieValue(value = "refreshToken", required = false) String refreshToken, HttpServletResponse response) {
-        ResponseEntity<HashMap> validationResponse = validateRefreshToken(refreshToken);
-        if (validationResponse != null) return validationResponse;
-
-        HashMap<String,String> renewedTokens = tokenRenewal(refreshToken);
-        ServerRefreshToken newRefreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(renewedTokens.get("refreshToken")));
-
-        // Refresh external access tokens
-        externalAccessTokenRefreshService.refreshAllTokens(newRefreshTokenObj.getUsername());
-
-        // Overwrite old refresh token with new refresh token
-        setRefreshTokenCookie(newRefreshTokenObj, response);
-        setAccessTokenCookie(renewedTokens.get("accessToken"), response);
-
-        return ResponseEntity.ok(new HashMap<String, Object>() {{
-            put("isLoggedIn", true);
-            put("accessTokenExpiration", serverAccessTokenService.getAccessTokenExpirationInMs() / 1000);
-        }});
-    }
-
-    @GetMapping("/check")       // Initial page load or refresh
+    @GetMapping("/check")       // Check authentication and authorization
     public ResponseEntity<HashMap> check(@CookieValue(value = "accessToken", required = false) String accessToken,
                                          @CookieValue(value = "refreshToken", required = false) String refreshToken,
                                          HttpServletResponse response) {
@@ -152,7 +133,7 @@ public class SecurityController {
                 put("accessTokenExpiration", 1000000 / 1000);
             }});
         } else if (refreshTokenValid) {
-            HashMap<String,String> renewedTokens = tokenRenewal(refreshToken);
+            HashMap<String, String> renewedTokens = tokenRenewal(refreshToken);
             ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(renewedTokens.get("refreshToken")));
             if (refreshTokenObj == null) {
                 return ResponseEntity.status(200).body(new HashMap<String, String>() {{
@@ -184,9 +165,9 @@ public class SecurityController {
         Date accessTokenExpiry = accessTokenClaims.getExpiration();
         String jti = accessTokenClaims.getId();
 
-        // Blacklist old access token if it hasn't expired
+        // Clear access token cache
         if (System.currentTimeMillis() < accessTokenExpiry.getTime()) {
-            serverAccessTokenService.blacklistAccessToken(jti, accessTokenExpiry);
+            serverAccessTokenService.clearAccessTokenCache(jti);
         }
 
         // Delete external access tokens
@@ -207,15 +188,17 @@ public class SecurityController {
     }
 
     private HashMap<String, String> tokenRenewal(String refreshToken) {
+
         // Grabbing attributes from refresh token
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
         String username = refreshTokenObj.getUsername();
+        List<UserRole> roles = userService.getRolesByUsername(username);
         Date oldRefreshExpiry = refreshTokenObj.getExpiryDate();
 
         // Generate new refresh and access token
-        String accessToken = serverAccessTokenService.generateAccessToken(username);
+        String newAccessToken = serverAccessTokenService.generateAccessToken(username, roles);
         ServerRefreshToken newRefreshTokenObj = serverRefreshTokenService
-                .generateRefreshTokenWithExpiryDate(username, oldRefreshExpiry, accessToken);
+                .generateRefreshTokenWithExpiryDate(username, oldRefreshExpiry, newAccessToken);
 
         if (newRefreshTokenObj == null) {
             HashMap<String, String> errorResponse = new HashMap<>();
@@ -223,16 +206,18 @@ public class SecurityController {
             return errorResponse;
         }
 
-        // Blacklist old access token if it hasn't expired
-        if (System.currentTimeMillis() < refreshTokenObj.getAccessExpiryDate().getTime()) {
-            serverAccessTokenService.blacklistAccessToken(refreshTokenObj.getAccessJti(), refreshTokenObj.getAccessExpiryDate());
-        }
+        // Caching the most recent access token in Redis
+        Claims newClaims = serverAccessTokenService.getClaimsFromToken(newAccessToken);
+        serverAccessTokenService.cacheAccessToken(newClaims.getId());
+
+        // Clear the old access token cache
+        serverAccessTokenService.clearAccessTokenCache(refreshTokenObj);
 
         // Delete the old refresh token
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
         return new HashMap<String, String>() {{
-            put("accessToken", accessToken);
+            put("accessToken", newAccessToken);
             put("refreshToken", serverRefreshTokenService.getRefreshToken(newRefreshTokenObj));
         }};
     }
@@ -243,7 +228,7 @@ public class SecurityController {
 
         refreshTokenCookie.setHttpOnly(true);
         refreshTokenCookie.setPath("/");
-        refreshTokenCookie.setMaxAge((int) ((refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis())/1000)); // In Seconds
+        refreshTokenCookie.setMaxAge((int) ((refreshTokenObj.getExpiryDate().getTime() - System.currentTimeMillis()) / 1000)); // In Seconds
         refreshTokenCookie.setSecure(true);
         refreshTokenCookie.setAttribute("SameSite", "Strict");
         response.addCookie(refreshTokenCookie);

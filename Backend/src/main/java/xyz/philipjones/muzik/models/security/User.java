@@ -5,12 +5,15 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import xyz.philipjones.muzik.config.ObjectIdDeserializer;
 import xyz.philipjones.muzik.config.ObjectIdSerializer;
+import xyz.philipjones.muzik.repositories.UserRolesRepository;
 
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
 @Document(collection = "users")
 public class User {
@@ -25,8 +28,12 @@ public class User {
     private String password;  // Stores hashed passwords
     private Date createdAt;
     private Date updatedAt;
-    private String role;
+
+    @DBRef
+    private List<UserRole> roles;
+
     private HashMap<String, HashMap<String, Object>> connections;
+    private boolean verified;
     private String verificationCode;
     private Date verificationCodeExpiry;
 
@@ -34,7 +41,7 @@ public class User {
     public User() {
         // Default constructor
         this.connections = new HashMap<String, HashMap<String, Object>>();
-        this.role = "unverified";
+        this.verified = false;
     }
 
     public ObjectId getId() {
@@ -85,12 +92,12 @@ public class User {
         this.updatedAt = updatedAt;
     }
 
-    public String getRole() {
-        return role;
+    public List<UserRole> getRoles() {
+        return roles;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setRoles(List<UserRole> role) {
+        this.roles = role;
     }
 
     public HashMap<String, HashMap<String, Object>> getConnections() {
@@ -120,5 +127,13 @@ public class User {
 
     public void setVerificationCodeExpiry(Date verificationCodeExpiry) {
         this.verificationCodeExpiry = verificationCodeExpiry;
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.verified = verified;
     }
 }

@@ -9,13 +9,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 // TODO: refactor to use the service instead
 import xyz.philipjones.muzik.models.security.User;
+import xyz.philipjones.muzik.models.security.UserRole;
 import xyz.philipjones.muzik.repositories.UserRepository;
+import xyz.philipjones.muzik.repositories.UserRolesRepository;
 import xyz.philipjones.muzik.services.email.EmailService;
 
-import java.util.Date;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class UserService {
@@ -25,16 +24,18 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final StringEncryptor stringEncryptor;
     private final EmailService emailService;
+    private final UserRolesRepository userRolesRepository;
 
     @Autowired
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        @Qualifier("jasyptStringEncryptor") StringEncryptor stringEncryptor,
-                       EmailService emailService, @Value("${frontend.https.url}") String frontendUrl) {
+                       EmailService emailService, @Value("${frontend.https.url}") String frontendUrl, UserRolesRepository userRolesRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.stringEncryptor = stringEncryptor;
         this.emailService = emailService;
         this.frontendUrl = frontendUrl;
+        this.userRolesRepository = userRolesRepository;
     }
 
     public boolean registerUser(User user) {
@@ -43,6 +44,7 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        assignDefaultRole(user);
 
         try {
             userRepository.save(user);
@@ -58,7 +60,7 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByUsername(username);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            user.setRole("user");
+            user.setVerified(true);
             userRepository.save(user);
             return true;
         }
@@ -67,6 +69,12 @@ public class UserService {
 
     public Optional<User> getUserByUsername(String username) {
         return userRepository.findByUsername(username);
+    }
+
+    public List<UserRole> getRolesByUsername(String username) {
+        User user = userRepository.findByUsername(username).orElse(null);
+        assert user != null;
+        return user.getRoles();
     }
 
     public Optional<User> getUserById(ObjectId id) {
@@ -95,6 +103,12 @@ public class UserService {
 
     private Map<String, Object> getConnections(User user, String connectionName) {
         return user.getConnections().get(connectionName);
+    }
+
+    private void assignDefaultRole(User user) {
+        UserRole defaultRole = userRolesRepository.findByName("ROLE_USER")
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+        user.setRoles(List.of(defaultRole));
     }
 
     private void sendVerificationCode(User user) {

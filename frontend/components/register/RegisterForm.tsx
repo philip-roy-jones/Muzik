@@ -25,6 +25,8 @@ export default function RegisterForm() {
       .catch((error) => {
         console.error("Error:", error);
       });
+
+    // TODO: Redirect to home page and update login state
   }
 
   return (

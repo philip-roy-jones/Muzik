@@ -9,11 +9,14 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import xyz.philipjones.muzik.models.security.ServerRefreshToken;
+import xyz.philipjones.muzik.models.security.UserRole;
 import xyz.philipjones.muzik.services.redis.RedisService;
 import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
 import java.security.Key;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ServerAccessTokenService {
@@ -34,8 +37,7 @@ public class ServerAccessTokenService {
         this.stringEncryptor = stringEncryptor;
     }
 
-    public String generateAccessToken(String username) {
-        // TODO: Add the user's roles to the claims, maybe we should pass in User object instead
+    public String generateAccessToken(String username, List<UserRole> roles) {
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("iss", ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString());  // Sets the issuer (iss) claim to the current server's URI
@@ -45,6 +47,12 @@ public class ServerAccessTokenService {
         claims.put("nbf", new Date(System.currentTimeMillis()));
         claims.put("iat", new Date(System.currentTimeMillis()));
         claims.put("jti", java.util.UUID.randomUUID().toString());
+
+        // Add roles to claims
+        List<String> roleNames = roles.stream()
+                .map(UserRole::getName)
+                .collect(Collectors.toList());
+        claims.put("roles", roleNames);
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -76,9 +84,8 @@ public class ServerAccessTokenService {
                 return false; // Token is expired
             }
 
-            // TODO: Change to if the access token is in Redis = valid
-            // Validating blacklist
-            if (Boolean.TRUE.equals(redisService.hasKey("serverAccessToken:blacklist:" + stringEncryptor.encrypt(claims.getId())))) {
+            // Validating against most recent access token
+            if (!Boolean.TRUE.equals(redisService.hasKey("serverAccessToken:cache:" + stringEncryptor.encrypt(claims.getId())))) {
                 return false;
             }
 
@@ -96,9 +103,19 @@ public class ServerAccessTokenService {
                 .getBody();
     }
 
-    public void blacklistAccessToken(String encryptedJti, Date expiration) {
-        // An ENCRYPTED jti is passed through, all we need to do is add to Redis
-        redisService.setValueWithExpiration("serverAccessToken:blacklist:" + encryptedJti, "blacklisted", expiration.getTime() - System.currentTimeMillis());
+    public void cacheAccessToken(String jti) {
+        String encryptedJti = stringEncryptor.encrypt(jti);
+        redisService.setValueWithExpiration("serverAccessToken:cache:" + encryptedJti, "cached", accessTokenExpirationInMs);
+    }
+
+    public void clearAccessTokenCache(String jti) {
+        String encryptedJti = stringEncryptor.encrypt(jti);
+        redisService.deleteKey("serverAccessToken:cache:" + encryptedJti);
+    }
+
+    // For already encrypted JTI
+    public void clearAccessTokenCache(ServerRefreshToken refreshToken) {
+        redisService.deleteKey("serverAccessToken:cache:" + refreshToken.getAccessJti());
     }
 
     public String encryptJti(Claims claims) {

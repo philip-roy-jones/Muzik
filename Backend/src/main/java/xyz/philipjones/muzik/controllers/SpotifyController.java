@@ -1,6 +1,9 @@
 package xyz.philipjones.muzik.controllers;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import xyz.philipjones.muzik.services.redis.RedisQueueService;
 import xyz.philipjones.muzik.services.redis.RedisService;
@@ -82,32 +85,50 @@ public class SpotifyController {
 
     // ----------------------------------------Spotify API Routes----------------------------------------
     @GetMapping("/random-track")
-    public HashMap getRandomTrack(@CookieValue("accessToken") String accessToken) {
+    public ResponseEntity<HashMap> getRandomTrack(@CookieValue("accessToken") String accessToken, HttpServletResponse response) {
         String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
 
         HashMap randomTrack = makeRandomSearch(username, "track");
 
+        if (randomTrack == null) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "No valid Spotify access token found");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+
         spotifyCollectionService.createAndSaveTrackWithAlbumAndArtists(randomTrack);
 
-        return randomTrack;
+        return ResponseEntity.ok(randomTrack);
     }
 
     @GetMapping("/random-album")
-    public HashMap getRandomAlbum(@CookieValue("accessToken") String accessToken) {
+    public ResponseEntity<HashMap> getRandomAlbum(@CookieValue("accessToken") String accessToken) {
         String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
 
         HashMap randomAlbum = makeRandomAlbumSearch(username);
 
-        return randomAlbum;
+        if (randomAlbum == null) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "No valid Spotify access token found");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+
+        return ResponseEntity.ok(randomAlbum);
     }
 
     @GetMapping("/random-artist")
-    public HashMap getRandomArtist(@CookieValue("accessToken") String accessToken) {
+    public ResponseEntity<HashMap> getRandomArtist(@CookieValue("accessToken") String accessToken, HttpServletResponse response) {
         String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
 
         HashMap randomArtist = makeRandomSearch(username, "artist");
 
-        return randomArtist;
+        if (randomArtist == null) {
+            HashMap<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "No valid Spotify access token found");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+
+        return ResponseEntity.ok(randomArtist);
     }
 
     @GetMapping("/test")
@@ -132,6 +153,10 @@ public class SpotifyController {
         offset = random.nextInt(Integer.parseInt(poppedItem.get(1)));
 
         HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), type, limit, offset, "audio", username);
+
+        if (spotifyResponse == null) {
+            return null;
+        }
 
         HashMap result = (HashMap) spotifyResponse.get(type + "s");
         ArrayList items = (ArrayList) result.get("items");
@@ -168,6 +193,10 @@ public class SpotifyController {
             }
 
             HashMap spotifyResponse = spotifyRequestService.search(poppedItem.get(0), "album", limit, offset, "audio", username);
+
+            if (spotifyResponse == null) {
+                return null;
+            }
 
             HashMap result = (HashMap) spotifyResponse.get("albums");
             items = (ArrayList) result.get("items");
