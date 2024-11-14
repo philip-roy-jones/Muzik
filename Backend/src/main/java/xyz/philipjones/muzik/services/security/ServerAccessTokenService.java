@@ -122,6 +122,10 @@ public class ServerAccessTokenService {
         return stringEncryptor.encrypt(claims.getId());
     }
 
+    public String decryptJti(String encryptedJti) {
+        return stringEncryptor.decrypt(encryptedJti);
+    }
+
     public long getAccessTokenExpirationInMs() {
         return accessTokenExpirationInMs;
     }

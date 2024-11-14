@@ -1,8 +1,9 @@
 import {useState} from "react";
 import {checkTokens} from "@/utils/authService";
+import useStateWithRef from "@/hooks/useStateWithRef";
 
 export function useToken() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isLoggedIn, isLoggedInRef, setIsLoggedIn] = useStateWithRef(false);
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
 
   const initTokens = async () => {
@@ -30,5 +31,5 @@ export function useToken() {
     }
   };
 
-  return { isLoggedIn, setIsLoggedIn, expiryDate, setExpiryDate, initTokens };
+  return { isLoggedIn, isLoggedInRef, setIsLoggedIn, expiryDate, setExpiryDate, initTokens };
 }

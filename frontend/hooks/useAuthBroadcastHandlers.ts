@@ -3,8 +3,8 @@ import {useBroadcastChannel} from "@/hooks/useBroadcastChannel";
 export function useAuthBroadcastHandlers(
   tabUUID: string,
   isLoggedIn: boolean,
+  setIsLoggedIn: (status: boolean) => void,
   expiryDate: Date | null,
-  setIsLoggedIn: (isLoggedIn: boolean) => void,
   setExpiryDate: (date: Date | null) => void,
 ) {
 
@@ -34,7 +34,7 @@ export function useAuthBroadcastHandlers(
 
   const handlePrivateBroadcast = (event: MessageEvent) => {
     const {type, loginStatus, expDate} = event.data as { type: string; loginStatus: boolean; expDate: Date };
-    // console.log(`Received private message: ${type} with token: ${token}`);
+    console.log(`Received private message: ${type} with login status: ${loginStatus}`);
     if (type === "login") {
       // If the new expiry date is longer than the current one, or if there is no expiry date, update it
       if ((expiryDate && expiryDate < expDate) || !expiryDate) {
@@ -47,7 +47,7 @@ export function useAuthBroadcastHandlers(
   const publicChannel = useBroadcastChannel("public_channel", handlePublicBroadcast);
 
   // Private channel only for receiving, so it has no usages
-  const privateChannel = useBroadcastChannel(`private_channel_${tabUUID}`, handlePrivateBroadcast);
+  useBroadcastChannel(`private_channel_${tabUUID}`, handlePrivateBroadcast);
 
   return { publicChannel };
 }

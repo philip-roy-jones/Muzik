@@ -2,6 +2,7 @@ import {createContext} from "react";
 
 interface AuthContextType {
   isLoggedIn: boolean;
+  isLoggedInRef: React.MutableRefObject<boolean>;
   setIsLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;
 
   expiryDate: Date | null;

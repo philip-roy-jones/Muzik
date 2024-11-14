@@ -10,7 +10,7 @@ import { useAuthRedirect } from '@/hooks/useAuthRedirect';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function AuthProvider({children,}: Readonly<{ children: React.ReactNode; }>) {
-  const {isLoggedIn, setIsLoggedIn, expiryDate, setExpiryDate, initTokens} = useToken();
+  const {isLoggedIn, isLoggedInRef, setIsLoggedIn, expiryDate, setExpiryDate, initTokens} = useToken();
   const router = useRouter();
   const pathname = usePathname();
   const isInitialRender = useRef(true);
@@ -19,12 +19,12 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
   const {publicChannel} = useAuthBroadcastHandlers(
     tabUUID,
     isLoggedIn,
-    expiryDate,
     setIsLoggedIn,
+    expiryDate,
     setExpiryDate
   );
 
-  // Only run on first render, checks if other tabs have token, if not fetches access token
+  // Only run on first render, checks if other tabs have token, if not fetches access token.
   // Access token is stored in memory, so by default it will be null every time the page is refreshed/newly opened
   useEffect(() => {
     console.log("AuthProvider useEffect triggered");
@@ -32,7 +32,9 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
 
     // If no response is received within 100 ms, fetch new token. This is client hardware dependent.
     setTimeout(() => {
-      if (!isLoggedIn) {
+      // Uses ref instead of state so it can track the login status through re-renders (ie. state is updated in middle of timeout, which causes re-render,
+      // but the setTimeout function will still use the old state value)
+      if (!isLoggedInRef.current) {
         initTokens();
       }
     }, 100);
@@ -59,7 +61,7 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
   useAuthRedirect(isLoggedIn, pathname, router);
 
   return (
-    <AuthContext.Provider value={{isLoggedIn, setIsLoggedIn, expiryDate, setExpiryDate}}>
+    <AuthContext.Provider value={{isLoggedIn, isLoggedInRef, setIsLoggedIn, expiryDate, setExpiryDate}}>
       <Header/>
       {children}
     </AuthContext.Provider>

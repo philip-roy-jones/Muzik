@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import {useEffect} from 'react';
 import { useRouter } from 'next/navigation';
 
 // Using accessTokenRef to get the most up-to-date value of the access token

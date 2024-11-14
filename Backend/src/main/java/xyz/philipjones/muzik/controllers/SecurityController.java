@@ -9,7 +9,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.*;
 import xyz.philipjones.muzik.models.security.*;
-// TODO: Remove this import below, use the service instead
 import xyz.philipjones.muzik.services.security.ExternalAccessTokenService;
 import xyz.philipjones.muzik.services.security.AuthenticationService;
 import xyz.philipjones.muzik.services.security.ServerAccessTokenService;
@@ -122,7 +121,6 @@ public class SecurityController {
                                          @CookieValue(value = "refreshToken", required = false) String refreshToken,
                                          HttpServletResponse response) {
         boolean accessTokenValid = accessToken != null && serverAccessTokenService.validateAccessToken(accessToken);
-        boolean refreshTokenValid = refreshToken != null && serverRefreshTokenService.validateRefreshToken(refreshToken);
 
         if (accessTokenValid) {
             Claims claims = serverAccessTokenService.getClaimsFromToken(accessToken);
@@ -132,7 +130,10 @@ public class SecurityController {
                 put("isLoggedIn", true);
                 put("accessTokenExpiration", 1000000 / 1000);
             }});
-        } else if (refreshTokenValid) {
+        }
+
+        boolean refreshTokenValid = refreshToken != null && serverRefreshTokenService.validateRefreshToken(refreshToken);
+        if (refreshTokenValid) {
             HashMap<String, String> renewedTokens = tokenRenewal(refreshToken);
             ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(renewedTokens.get("refreshToken")));
             if (refreshTokenObj == null) {
@@ -155,15 +156,13 @@ public class SecurityController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<HashMap> logout(@CookieValue(value = "accessToken", required = false) String accessToken,
-                                          @CookieValue(value = "refreshToken", required = false) String refreshToken,
+    public ResponseEntity<HashMap> logout(@CookieValue(value = "refreshToken", required = false) String refreshToken,
                                           HttpServletResponse response) {
-        // TODO: Use refresh token cookie instead, access token does not function well when it has expired
+        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
 
-        Claims accessTokenClaims = serverAccessTokenService.getClaimsFromToken(accessToken);
-        String username = accessTokenClaims.getSubject();
-        Date accessTokenExpiry = accessTokenClaims.getExpiration();
-        String jti = accessTokenClaims.getId();
+        String username = refreshTokenObj.getUsername();
+        Date accessTokenExpiry = refreshTokenObj.getAccessExpiryDate();
+        String jti = serverAccessTokenService.decryptJti(refreshTokenObj.getAccessJti());       // Must decrypt to pass into clearAccessTokenCache
 
         // Clear access token cache
         if (System.currentTimeMillis() < accessTokenExpiry.getTime()) {
@@ -174,8 +173,6 @@ public class SecurityController {
         spotifyTokenService.deleteSpotifyAccessToken(username);
 
         // Remove refresh token from database
-
-        ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByAccessJti(jti);
         serverRefreshTokenService.deleteRefreshToken(refreshTokenObj);
 
         // Clear token cookie

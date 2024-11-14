@@ -90,8 +90,6 @@ public class ServerRefreshTokenService {
 
     // True if the token is valid, false otherwise
     public boolean validateRefreshToken(String token) {
-        // TODO: Cache refresh token in Redis for couple minutes to avoid multiple DB calls
-
         Optional<ServerRefreshToken> refreshTokenOpt = serverRefreshTokenRepository.findByToken(stringEncryptor.encrypt(token));
 
         if (refreshTokenOpt.isPresent()) {
