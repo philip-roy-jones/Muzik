@@ -1,32 +1,38 @@
 "use client";
 
-import axios from "axios";
-import React, { useState } from "react";
+import React, {useContext, useState} from "react";
+import {register} from "@/utils/authService";
+import {AuthContext} from "@/contexts/AuthContext";
+import {useRouter} from "next/navigation";
 
 export default function RegisterForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const authContext = useContext(AuthContext);
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
-    axios
-      .post("https://localhost:8443/public/register", {
-        username,
-        email,
-        password,
-        confirmPassword,
-      })
-      .then((response) => {
-        console.log("Success:", response.data);
-      })
-      .catch((error) => {
-        console.error("Error:", error);
-      });
+    const responseObject = await register(username, email, password, confirmPassword);
 
-    // TODO: Redirect to home page and update login state
+    setIsLoading(false);
+    if (!responseObject) {
+      console.error("Invalid registration");
+      return;
+    } else {
+      const {loginStatus, expSeconds} = responseObject;
+      const expiryDate = new Date(Date.now() + Number(expSeconds) * 1000);
+      authContext?.setExpiryDate(expiryDate);
+      authContext?.setIsLoggedIn(loginStatus);
+      router.push("/");
+    }
+
   }
 
   return (
@@ -102,9 +108,12 @@ export default function RegisterForm() {
       <div>
         <button
           type="submit"
-          className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          disabled={isLoading}
+          className="flex justify-center w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
-          Register
+          {isLoading ? <div
+              className="spinner-border animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div> :
+            "Register"}
         </button>
       </div>
     </form>

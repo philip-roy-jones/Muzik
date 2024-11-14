@@ -41,9 +41,6 @@ export default function AuthProvider({children,}: Readonly<{ children: React.Rea
 
   }, []);
 
-  // TODO: This will still try to fetchTokens() even when user is not logged in, maybe have something in localstorage indicating
-  //  if user is logged in?
-
   // Login/Logout Broadcast Hook
   useEffect(() => {
     if (isInitialRender.current) {

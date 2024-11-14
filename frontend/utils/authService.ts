@@ -5,6 +5,17 @@ interface TokenResponse {
   loginStatus: boolean
 }
 
+export const register= async (username: string, email: string, password: string, confirmPassword: string): Promise<TokenResponse | null> => {
+  const response = await axios.post("https://localhost:8443/public/register", {
+    username,
+    email,
+    password,
+    confirmPassword
+  }, {withCredentials: true});
+
+  return handleResponse(response);
+}
+
 export const checkTokens = async () => {
   const response = await axios.get("https://localhost:8443/public/check", {withCredentials: true});
   return handleResponse(response);
@@ -33,6 +44,11 @@ export const logout = async (): Promise<void> => {
     withCredentials: true
   });
 }
+
+
+
+
+
 
 function handleResponse(response: AxiosResponse): TokenResponse | null {
   if (response.status === 200) {

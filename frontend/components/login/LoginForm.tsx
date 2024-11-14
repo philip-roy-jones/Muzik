@@ -26,7 +26,7 @@ export default function LoginForm() {
       const expiryDate = new Date(Date.now() + Number(expSeconds) * 1000);
       authContext?.setExpiryDate(expiryDate);
       authContext?.setIsLoggedIn(loginStatus);
-      await router.push("/");
+      router.push("/");
     }
   };
 
