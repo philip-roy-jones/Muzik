@@ -2,8 +2,8 @@
 
 import {useState, useContext} from "react";
 import Link from "next/link";
-import {logout} from "@/utils/authService";
-import {AuthContext} from "@/contexts/AuthContext";
+import {logout} from "@/src/utils/authService";
+import {AuthContext} from "@/src/contexts/AuthContext";
 import { useRouter } from 'next/navigation';
 
 const ProfileMenu = () => {

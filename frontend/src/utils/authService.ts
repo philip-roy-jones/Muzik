@@ -1,8 +1,8 @@
 import axios, {AxiosResponse} from "axios";
 
 interface TokenResponse {
-  expSeconds: number,
-  loginStatus: boolean
+  username: string;
+  roles: string[];
 }
 
 export const register= async (username: string, email: string, password: string, confirmPassword: string): Promise<TokenResponse | null> => {
@@ -16,7 +16,7 @@ export const register= async (username: string, email: string, password: string,
   return handleResponse(response);
 }
 
-export const checkTokens = async () => {
+export const check = async () => {
   const response = await axios.get("https://localhost:8443/public/check", {withCredentials: true});
   return handleResponse(response);
 }
@@ -56,8 +56,8 @@ function handleResponse(response: AxiosResponse): TokenResponse | null {
       return null;
     } else {
       return {
-        expSeconds: response.data.accessTokenExpiration,
-        loginStatus: response.data.isLoggedIn
+        username: response.data.username,
+        roles: response.data.roles
       };
     }
   } else if (response.status === 400 || response.status === 401) {

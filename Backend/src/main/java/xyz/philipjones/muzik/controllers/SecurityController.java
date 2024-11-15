@@ -116,7 +116,7 @@ public class SecurityController {
         }
     }
 
-    @GetMapping("/check")       // Check authentication and authorization
+    @GetMapping("/check")       // authentication and authorization check
     public ResponseEntity<HashMap> check(@CookieValue(value = "accessToken", required = false) String accessToken,
                                          @CookieValue(value = "refreshToken", required = false) String refreshToken,
                                          HttpServletResponse response) {
@@ -124,11 +124,13 @@ public class SecurityController {
 
         if (accessTokenValid) {
             Claims claims = serverAccessTokenService.getClaimsFromToken(accessToken);
-            long accessTokenExpiration = claims.getExpiration().getTime() - System.currentTimeMillis();
+            System.out.println(claims.get("roles"));
 
             return ResponseEntity.ok(new HashMap<String, Object>() {{
-                put("isLoggedIn", true);
-                put("accessTokenExpiration", 1000000 / 1000);
+                // user roles
+                put("roles", claims.get("roles"));
+                // username
+                put("username", claims.getSubject());
             }});
         }
 
@@ -137,20 +139,23 @@ public class SecurityController {
             HashMap<String, String> renewedTokens = tokenRenewal(refreshToken);
             ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(renewedTokens.get("refreshToken")));
             if (refreshTokenObj == null) {
-                return ResponseEntity.status(200).body(new HashMap<String, String>() {{
+                return ResponseEntity.status(200).body(new HashMap<String, Object>() {{
                     put("error", "Invalid refresh token, please login");
                 }});
             }
             setRefreshTokenCookie(refreshTokenObj, response);
             setAccessTokenCookie(renewedTokens.get("accessToken"), response);
+
+            String username = refreshTokenObj.getUsername();
             return ResponseEntity.ok(new HashMap<String, Object>() {{
-                put("isLoggedIn", true);
-                put("accessTokenExpiration", serverAccessTokenService.getAccessTokenExpirationInMs() / 1000);
+                // user roles
+                put("roles", userService.getRolesByUsername(username));
+                // username
+                put("username", username);
             }});
         } else {
             return ResponseEntity.ok(new HashMap<String, Object>() {{
-                put("isLoggedIn", false);
-                put("accessTokenExpiration", -1);
+                put("error", "Cannot validate refresh token, please login");
             }});
         }
     }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import ProfileButton from "@/components/shared/ProfileButton";
+import ProfileButton from "@/src/components/shared/ProfileButton";
 
 function Header() {
 

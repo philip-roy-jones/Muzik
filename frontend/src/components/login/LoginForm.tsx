@@ -2,8 +2,8 @@
 
 import {useState, useContext} from "react";
 import {useRouter} from "next/navigation";
-import {AuthContext} from "@/contexts/AuthContext";
-import {login} from "@/utils/authService";
+import {AuthContext} from "@/src/contexts/AuthContext";
+import {login} from "@/src/utils/authService";
 
 export default function LoginForm() {
   const [username, setUsername] = useState("");

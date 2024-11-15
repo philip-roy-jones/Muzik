@@ -1,8 +1,8 @@
 "use client";
 
 import React, {useContext, useState} from "react";
-import {register} from "@/utils/authService";
-import {AuthContext} from "@/contexts/AuthContext";
+import {register} from "@/src/utils/authService";
+import {AuthContext} from "@/src/contexts/AuthContext";
 import {useRouter} from "next/navigation";
 
 export default function RegisterForm() {

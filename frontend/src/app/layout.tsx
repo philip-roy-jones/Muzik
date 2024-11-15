@@ -1,7 +1,7 @@
 import type {Metadata} from "next";
-import {geistSans, geistMono} from "@/components/fonts/fonts";
+import {geistSans, geistMono} from "@/src/components/fonts/fonts";
 import "./globals.css";
-import AuthProvider from "@/components/auth/AuthProvider";
+import AuthProvider from "@/src/components/auth/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Muzik",

@@ -1,13 +1,13 @@
 'use client'
 
-import ProfileMenu from "@/components/shared/ProfileMenu";
+import ProfileMenu from "@/src/components/shared/ProfileMenu";
 import Link from "next/link";
 import { useContext } from "react";
-import { AuthContext } from "@/contexts/AuthContext";
+import { AuthContext } from "@/src/contexts/AuthContext";
 
 export default function ProfileButton () {
   const authContext = useContext(AuthContext);
-  const isLoggedIn = authContext?.isLoggedIn ?? false;
+  const isLoggedIn = authContext?.username ?? false;
 
   return (
     <>

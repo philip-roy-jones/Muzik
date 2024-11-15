@@ -2,9 +2,9 @@ import {useEffect} from 'react';
 import { useRouter } from 'next/navigation';
 
 // Using accessTokenRef to get the most up-to-date value of the access token
-export function useAuthRedirect(isLoggedIn:boolean, pathname: string, router: ReturnType<typeof useRouter>) {
+export function useAuthRedirect(username:string, pathname: string, router: ReturnType<typeof useRouter>) {
   useEffect(() => {
-    if (!isLoggedIn) { // No access token, user is not logged in
+    if (!username) { // No access token, user is not logged in
       // Block all routes until accessToken is set (except login and register)
       // console.log("No access token, user is not logged in");
       const isLoginOrRegisterRoute = pathname === '/login' || pathname === '/register' || pathname === '/debug';
@@ -19,5 +19,5 @@ export function useAuthRedirect(isLoggedIn:boolean, pathname: string, router: Re
         router.push('/'); // Redirect to home or another appropriate page
       }
     }
-  }, [isLoggedIn, pathname, router]);
+  }, [username, pathname, router]);
 }
