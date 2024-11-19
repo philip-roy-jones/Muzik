@@ -1,66 +1,108 @@
 'use client';
 
-import {AuthContext} from "@/src/contexts/AuthContext";
-import {useEffect, useRef} from "react";
+import React, {PropsWithChildren, useContext, useState} from "react";
+import { useQuery, QueryClient, QueryClientProvider } from "react-query";
 import Header from "@/src/components/shared/Header";
-import {v4 as uuidv4} from 'uuid';
-import {useToken} from "@/src/hooks/useToken";
-import {useAuthBroadcastHandlers} from "@/src/hooks/useAuthBroadcastHandlers";
-import { useAuthRedirect } from '@/src/hooks/useAuthRedirect';
-import { useRouter, usePathname } from 'next/navigation';
+import {User} from "@/src/types/user";
+import {createContext} from "react";
+import {login, logout, register} from "@/src/api/auth";
+import {useRouter} from "next/navigation";
 
-export default function AuthProvider({children,}: Readonly<{ children: React.ReactNode; }>) {
-  const {username, usernameRef, setUsername, roles, setRoles, initTokens} = useToken();
+type AuthContextType = {
+  accessToken?: string | null;
+  currentUser?: User | null;
+  handleRegister: (e: React.FormEvent) => Promise<void>;
+  handleLogin: (e: React.FormEvent) => Promise<void>;
+  handleLogout: () => Promise<void>;
+  setUsername: React.Dispatch<React.SetStateAction<string>>;
+  setPassword: React.Dispatch<React.SetStateAction<string>>;
+  setRememberMe: React.Dispatch<React.SetStateAction<boolean>>;
+  setEmail: React.Dispatch<React.SetStateAction<string>>;
+  setConfirmPassword: React.Dispatch<React.SetStateAction<string>>;
+  isLoading?: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const queryClient = new QueryClient();
+
+export default function AuthProvider({children}: PropsWithChildren) {
+  const [accessToken, setAccessToken] = useState<string | null>(); // default undefined
+  const [currentUser, setCurrentUser] = useState<User | null>(); // default undefined
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
+  const [email, setEmail] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
   const router = useRouter();
-  const pathname = usePathname();
-  const isInitialRender = useRef(true);
-  const tabUUID = uuidv4();
 
-  const {publicChannel} = useAuthBroadcastHandlers(
-    tabUUID,
-    username,
-    setUsername,
-    roles,
-    setRoles
-  );
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
 
-  // Only run on first render, checks if other tabs have token, if not fetches access token.
-  // Access token is stored in memory, so by default it will be null every time the page is refreshed/newly opened
-  useEffect(() => {
-    console.log("AuthProvider useEffect triggered");
-    if (publicChannel) publicChannel.postMessage({type: "request_token", tabUUID: tabUUID});
+    try {
+      const response = await login(username, password, rememberMe);
+      const {accessToken, currUser} = response[1] as { accessToken: string; currUser: User };
 
-    // If no response is received within 100 ms, fetch new token. This is client hardware dependent.
-    setTimeout(() => {
-      // Uses ref instead of state so it can track the login status through re-renders (ie. state is updated in middle of timeout, which causes re-render,
-      // but the setTimeout function will still use the old state value)
-      if (!usernameRef.current) {
-        initTokens();
-      }
-    }, 100);
-
-  }, []);
-
-  // Login/Logout Broadcast Hook
-  useEffect(() => {
-    if (isInitialRender.current) {
-      isInitialRender.current = false; // Skip on first render
-      return;
+      setAccessToken(accessToken);
+      setCurrentUser(currUser);
+      router.push('/');
+    } catch {
+      setAccessToken(null);
+      setCurrentUser(null);
+      router.replace('/login');
     }
+  }
 
-    if (username) {
-      if (publicChannel) publicChannel.postMessage({type: "login", username: username, roles: roles});
-    } else {
-      if (publicChannel) publicChannel.postMessage({type: "logout"});
+  async function handleLogout() {
+    await logout();
+
+    setAccessToken(null);
+    setCurrentUser(null);
+    router.push('/');
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      setIsLoading(true);
+      const responseObject = await register(username, email, password, confirmPassword);
+      console.log(responseObject);
+      setIsLoading(false);
+    } catch {
+      setIsLoading(false);
     }
-  }, [username]);
-
-  useAuthRedirect(username, pathname, router);
+  }
 
   return (
-    <AuthContext.Provider value={{username, usernameRef, setUsername, roles, setRoles }}>
+    <AuthContext.Provider
+      value={{
+        accessToken,
+        currentUser,
+        handleRegister,
+        handleLogin,
+        handleLogout,
+        setUsername,
+        setPassword,
+        setRememberMe,
+        setEmail,
+        setConfirmPassword,
+        isLoading
+      }}
+    >
       <Header/>
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+
+  return context;
 }

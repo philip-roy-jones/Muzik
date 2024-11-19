@@ -1,37 +1,23 @@
 "use client";
 
-import {useState, useContext} from "react";
-import {useRouter} from "next/navigation";
-import {AuthContext} from "@/src/contexts/AuthContext";
-import {login} from "@/src/utils/authService";
+import {useAuth} from "@/src/components/auth/AuthProvider";
+import { useRouter } from "next/navigation";
+import { useLayoutEffect } from 'react';
 
 export default function LoginForm() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
 
-  const authContext = useContext(AuthContext);
+  const {handleLogin, setUsername, setPassword, setRememberMe, accessToken} = useAuth();
+
   const router = useRouter();
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const responseObject = await login(username, password, rememberMe)
-
-    if (!responseObject) {
-      console.error("Invalid login");
-      return;
-    } else {
-      const {loginStatus, expSeconds} = responseObject;
-      const expiryDate = new Date(Date.now() + Number(expSeconds) * 1000);
-      authContext?.setExpiryDate(expiryDate);
-      authContext?.setIsLoggedIn(loginStatus);
-      router.push("/");
+  useLayoutEffect(() => {
+    if (accessToken) {
+      router.push('/');
     }
-  };
+  },[]);
+
 
   return (
-    <form method="POST" className="space-y-6" onSubmit={handleSubmit}>
+    <form method="POST" className="space-y-6" onSubmit={handleLogin}>
       <div>
         <label htmlFor="username" className="block text-sm font-medium leading-6">
           Username

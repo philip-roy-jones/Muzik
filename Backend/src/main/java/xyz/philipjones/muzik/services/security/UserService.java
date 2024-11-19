@@ -42,6 +42,7 @@ public class UserService {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             return false; // Username already exists
         }
+        // TODO: check if email is already in use
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         assignDefaultRole(user);

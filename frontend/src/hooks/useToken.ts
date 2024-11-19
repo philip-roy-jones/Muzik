@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {check} from "@/src/utils/authService";
+import {check} from "@/src/api/auth";
 import useStateWithRef from "@/src/hooks/useStateWithRef";
 
 export function useToken() {

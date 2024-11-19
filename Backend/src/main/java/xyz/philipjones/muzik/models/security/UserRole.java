@@ -11,14 +11,12 @@ public class UserRole {
     @Id
     private String id;
     private String name; // Role name, e.g., "ROLE_USER", "ROLE_ADMIN"
-    private List<String> permissions;
 
     // Constructors, getters, setter
     public UserRole() {}
 
-    public UserRole(String name, List<String> permissions) {
+    public UserRole(String name) {
         this.name = name;
-        this.permissions = permissions;
     }
 
     public String getId() {
@@ -37,11 +35,4 @@ public class UserRole {
         this.name = name;
     }
 
-    public List<String> getPermissions() {
-        return permissions;
-    }
-
-    public void setPermissions(List<String> permissions) {
-        this.permissions = permissions;
-    }
 }

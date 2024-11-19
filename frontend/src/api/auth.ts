@@ -1,11 +1,7 @@
 import axios, {AxiosResponse} from "axios";
+import {User} from "@/src/types/user";
 
-interface TokenResponse {
-  username: string;
-  roles: string[];
-}
-
-export const register= async (username: string, email: string, password: string, confirmPassword: string): Promise<TokenResponse | null> => {
+export const register= async (username: string, email: string, password: string, confirmPassword: string) => {
   const response = await axios.post("https://localhost:8443/public/register", {
     username,
     email,
@@ -21,7 +17,7 @@ export const check = async () => {
   return handleResponse(response);
 }
 
-export const renewTokens = async (): Promise<TokenResponse|null> => {
+export const renewTokens = async () => {
   // Backend automatically sets refresh token in cookie
   const response = await axios.post("https://localhost:8443/public/refresh",
     {/* Empty Body */}, {withCredentials: true});
@@ -29,7 +25,7 @@ export const renewTokens = async (): Promise<TokenResponse|null> => {
   return handleResponse(response);
 }
 
-export const login = async (username: string, password: string, rememberMe: boolean): Promise<TokenResponse | null> => {
+export const login = async (username: string, password: string, rememberMe: boolean) => {
   const response = await axios.post("https://localhost:8443/public/login", {
     username,
     password,
@@ -50,15 +46,18 @@ export const logout = async (): Promise<void> => {
 
 
 
-function handleResponse(response: AxiosResponse): TokenResponse | null {
+function handleResponse(response: AxiosResponse) {
   if (response.status === 200) {
     if (response.data.error) {
-      return null;
+      return [400, null];
     } else {
-      return {
+      const currUser: User = {
         username: response.data.username,
         roles: response.data.roles
-      };
+      }
+      const accessToken = response.data.accessToken;
+
+      return [200, {accessToken, currUser}] as const;
     }
   } else if (response.status === 400 || response.status === 401) {
     throw new Error("Error: Bad Request");

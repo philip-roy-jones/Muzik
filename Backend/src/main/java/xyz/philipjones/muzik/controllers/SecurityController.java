@@ -19,6 +19,7 @@ import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/public")
@@ -92,7 +93,7 @@ public class SecurityController {
 
             String username = authentication.getName();
 
-            List<UserRole> roles = userService.getRolesByUsername(username);
+            List<String> roles = userService.getRolesByUsername(username).stream().map(UserRole::getName).collect(Collectors.toList());
 
             String accessToken = serverAccessTokenService.generateAccessToken(username, roles);
             ServerRefreshToken refreshTokenObj = serverRefreshTokenService.generateRefreshToken(username, loginRequest.isRememberMe(), accessToken);
@@ -103,11 +104,11 @@ public class SecurityController {
             externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
             setRefreshTokenCookie(refreshTokenObj, response);
-            setAccessTokenCookie(accessToken, response);
 
             return ResponseEntity.ok(new HashMap<String, Object>() {{
-                put("isLoggedIn", true);
-                put("accessTokenExpiration", serverAccessTokenService.getAccessTokenExpirationInMs() / 1000);
+                put("accessToken", accessToken);
+                put("roles", roles);
+                put("username", username);
             }});
         } catch (AuthenticationException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
@@ -116,23 +117,9 @@ public class SecurityController {
         }
     }
 
-    @GetMapping("/check")       // authentication and authorization check
-    public ResponseEntity<HashMap> check(@CookieValue(value = "accessToken", required = false) String accessToken,
-                                         @CookieValue(value = "refreshToken", required = false) String refreshToken,
+    @GetMapping("/check")
+    public ResponseEntity<HashMap> check(@CookieValue(value = "refreshToken", required = false) String refreshToken,
                                          HttpServletResponse response) {
-        boolean accessTokenValid = accessToken != null && serverAccessTokenService.validateAccessToken(accessToken);
-
-        if (accessTokenValid) {
-            Claims claims = serverAccessTokenService.getClaimsFromToken(accessToken);
-            System.out.println(claims.get("roles"));
-
-            return ResponseEntity.ok(new HashMap<String, Object>() {{
-                // user roles
-                put("roles", claims.get("roles"));
-                // username
-                put("username", claims.getSubject());
-            }});
-        }
 
         boolean refreshTokenValid = refreshToken != null && serverRefreshTokenService.validateRefreshToken(refreshToken);
         if (refreshTokenValid) {
@@ -144,13 +131,12 @@ public class SecurityController {
                 }});
             }
             setRefreshTokenCookie(refreshTokenObj, response);
-            setAccessTokenCookie(renewedTokens.get("accessToken"), response);
 
             String username = refreshTokenObj.getUsername();
+            List<String> roles = userService.getRolesByUsername(username).stream().map(UserRole::getName).toList();
             return ResponseEntity.ok(new HashMap<String, Object>() {{
-                // user roles
-                put("roles", userService.getRolesByUsername(username));
-                // username
+                put("accessToken", renewedTokens.get("accessToken"));
+                put("roles", roles);
                 put("username", username);
             }});
         } else {
@@ -194,7 +180,7 @@ public class SecurityController {
         // Grabbing attributes from refresh token
         ServerRefreshToken refreshTokenObj = serverRefreshTokenService.findByToken(serverRefreshTokenService.encryptRefreshToken(refreshToken));
         String username = refreshTokenObj.getUsername();
-        List<UserRole> roles = userService.getRolesByUsername(username);
+        List<String> roles = userService.getRolesByUsername(username).stream().map(UserRole::getName).collect(Collectors.toList());
         Date oldRefreshExpiry = refreshTokenObj.getExpiryDate();
 
         // Generate new refresh and access token

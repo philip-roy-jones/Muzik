@@ -37,7 +37,7 @@ public class ServerAccessTokenService {
         this.stringEncryptor = stringEncryptor;
     }
 
-    public String generateAccessToken(String username, List<UserRole> roles) {
+    public String generateAccessToken(String username, List<String> roles) {
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("iss", ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString());  // Sets the issuer (iss) claim to the current server's URI
@@ -49,10 +49,7 @@ public class ServerAccessTokenService {
         claims.put("jti", java.util.UUID.randomUUID().toString());
 
         // Add roles to claims
-        List<String> roleNames = roles.stream()
-                .map(UserRole::getName)
-                .collect(Collectors.toList());
-        claims.put("roles", roleNames);
+        claims.put("roles", roles);
 
         return Jwts.builder()
                 .setClaims(claims)

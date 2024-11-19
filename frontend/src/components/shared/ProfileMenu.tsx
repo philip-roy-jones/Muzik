@@ -2,33 +2,18 @@
 
 import {useState, useContext} from "react";
 import Link from "next/link";
-import {logout} from "@/src/utils/authService";
-import {AuthContext} from "@/src/contexts/AuthContext";
+import {logout} from "@/src/api/auth";
 import { useRouter } from 'next/navigation';
+import {useAuth} from "@/src/components/auth/AuthProvider";
 
 const ProfileMenu = () => {
   const [isVisible, setIsVisible] = useState(false);
-  const router = useRouter();
 
   const toggleMenu = () => {
     setIsVisible(!isVisible);
   };
 
-  const authContext = useContext(AuthContext);
-  const { isLoggedIn, setIsLoggedIn, setExpiryDate } = authContext || {};
-  const handleLogout = async () => {
-    if (isLoggedIn) {
-      await logout();  // Tells backend you are logging out
-    }
-    if (setIsLoggedIn) {
-      setIsLoggedIn(false);  // Clears the token from memory
-    }
-
-    if (setExpiryDate) {
-      setExpiryDate(null);  // Clears the expiry date from memory
-    }
-    router.push('/login');
-  }
+  const {handleLogout} = useAuth();
 
   return (
     <div className="relative">

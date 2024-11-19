@@ -1,42 +1,14 @@
 "use client";
 
-import React, {useContext, useState} from "react";
-import {register} from "@/src/utils/authService";
-import {AuthContext} from "@/src/contexts/AuthContext";
-import {useRouter} from "next/navigation";
+import React from "react";
+import {useAuth} from "@/src/components/auth/AuthProvider";
 
 export default function RegisterForm() {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  const authContext = useContext(AuthContext);
-  const router = useRouter();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    const responseObject = await register(username, email, password, confirmPassword);
-
-    setIsLoading(false);
-    if (!responseObject) {
-      console.error("Invalid registration");
-      return;
-    } else {
-      const {loginStatus, expSeconds} = responseObject;
-      const expiryDate = new Date(Date.now() + Number(expSeconds) * 1000);
-      authContext?.setExpiryDate(expiryDate);
-      authContext?.setIsLoggedIn(loginStatus);
-      router.push("/");
-    }
-
-  }
+  const {handleRegister, setUsername, setPassword, setConfirmPassword, setEmail, isLoading} = useAuth();
 
   return (
-    <form method="POST" className="space-y-6" onSubmit={handleSubmit}>
+    <form method="POST" className="space-y-6" onSubmit={handleRegister}>
       <div>
         <label htmlFor="username" className="block text-sm font-medium leading-6">
           Username

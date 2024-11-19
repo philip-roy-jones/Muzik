@@ -7,8 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import xyz.philipjones.muzik.models.security.UserRole;
 import xyz.philipjones.muzik.repositories.UserRolesRepository;
 
-import java.util.List;
-
 @Component
 public class UserRoleSeeder {
 
@@ -19,12 +17,8 @@ public class UserRoleSeeder {
     CommandLineRunner initDatabase() {
         return args -> {
             if (userRolesRepository.count() == 0) {
-                userRolesRepository.save(new UserRole("ROLE_ADMIN", List.of(
-                        "READ_RANDOMIZER"
-                )));
-                userRolesRepository.save(new UserRole("ROLE_USER", List.of(
-                        "READ_RANDOMIZER"
-                )));
+                userRolesRepository.save(new UserRole("ROLE_ADMIN"));
+                userRolesRepository.save(new UserRole("ROLE_USER"));
             }
         };
     }
