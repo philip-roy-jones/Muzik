@@ -16,6 +16,7 @@ import xyz.philipjones.muzik.services.security.ServerRefreshTokenService;
 import xyz.philipjones.muzik.services.security.UserService;
 import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -104,11 +105,12 @@ public class SecurityController {
             externalAccessTokenRefreshService.refreshAllTokens(refreshTokenObj.getUsername());
 
             setRefreshTokenCookie(refreshTokenObj, response);
+            setAccessTokenCookie(accessToken, response);
 
             return ResponseEntity.ok(new HashMap<String, Object>() {{
-                put("accessToken", accessToken);
                 put("roles", roles);
                 put("username", username);
+                put("expiration", new Date(System.currentTimeMillis() + serverAccessTokenService.getAccessTokenExpirationInMs()));
             }});
         } catch (AuthenticationException e) {
             HashMap<String, String> errorResponse = new HashMap<>();
@@ -118,8 +120,22 @@ public class SecurityController {
     }
 
     @GetMapping("/check")
-    public ResponseEntity<HashMap> check(@CookieValue(value = "refreshToken", required = false) String refreshToken,
+    public ResponseEntity<HashMap> check(@CookieValue(value = "accessToken", required = false) String accessToken,
+                                         @CookieValue(value = "refreshToken", required = false) String refreshToken,
                                          HttpServletResponse response) {
+
+        boolean accessTokenValid = accessToken != null && serverAccessTokenService.validateAccessToken(accessToken);
+        if (accessTokenValid) {
+            Claims claims = serverAccessTokenService.getClaimsFromToken(accessToken);
+            String username = claims.getSubject();
+            List<String> roles = userService.getRolesByUsername(username).stream().map(UserRole::getName).collect(Collectors.toList());
+            Date expiration = claims.getExpiration();
+            return ResponseEntity.ok(new HashMap<String, Object>() {{
+                put("roles", roles);
+                put("username", username);
+                put("expiration", expiration);
+            }});
+        }
 
         boolean refreshTokenValid = refreshToken != null && serverRefreshTokenService.validateRefreshToken(refreshToken);
         if (refreshTokenValid) {
@@ -131,13 +147,14 @@ public class SecurityController {
                 }});
             }
             setRefreshTokenCookie(refreshTokenObj, response);
+            setAccessTokenCookie(renewedTokens.get("accessToken"), response);
 
             String username = refreshTokenObj.getUsername();
             List<String> roles = userService.getRolesByUsername(username).stream().map(UserRole::getName).toList();
             return ResponseEntity.ok(new HashMap<String, Object>() {{
-                put("accessToken", renewedTokens.get("accessToken"));
                 put("roles", roles);
                 put("username", username);
+                put("expiration", new Date(System.currentTimeMillis() + serverAccessTokenService.getAccessTokenExpirationInMs())); // We can use brand-new expiration here because we just renewed the token
             }});
         } else {
             return ResponseEntity.ok(new HashMap<String, Object>() {{

@@ -1,9 +1,7 @@
 'use client'
 
-import {useState, useContext} from "react";
+import {useState} from "react";
 import Link from "next/link";
-import {logout} from "@/src/api/auth";
-import { useRouter } from 'next/navigation';
 import {useAuth} from "@/src/components/auth/AuthProvider";
 
 const ProfileMenu = () => {

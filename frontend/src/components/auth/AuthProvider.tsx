@@ -1,15 +1,17 @@
 'use client';
 
-import React, {PropsWithChildren, useContext, useState} from "react";
-import { useQuery, QueryClient, QueryClientProvider } from "react-query";
+import React, {PropsWithChildren, useContext, useRef, useState} from "react";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import Header from "@/src/components/shared/Header";
 import {User} from "@/src/types/user";
 import {createContext} from "react";
-import {login, logout, register} from "@/src/api/auth";
+import {check, login, logout, register} from "@/src/api/auth";
 import {useRouter} from "next/navigation";
+import {v4 as uuidv4} from 'uuid';
+import {useAuthBroadcastHandlers} from "@/src/hooks/useAuthBroadcastHandlers";
 
 type AuthContextType = {
-  accessToken?: string | null;
+  expiration?: Date | null;
   currentUser?: User | null;
   handleRegister: (e: React.FormEvent) => Promise<void>;
   handleLogin: (e: React.FormEvent) => Promise<void>;
@@ -19,37 +21,70 @@ type AuthContextType = {
   setRememberMe: React.Dispatch<React.SetStateAction<boolean>>;
   setEmail: React.Dispatch<React.SetStateAction<string>>;
   setConfirmPassword: React.Dispatch<React.SetStateAction<string>>;
-  isLoading?: boolean;
+  isLoadingLocal?: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const queryClient = new QueryClient();
 
 export default function AuthProvider({children}: PropsWithChildren) {
-  const [accessToken, setAccessToken] = useState<string | null>(); // default undefined
-  const [currentUser, setCurrentUser] = useState<User | null>(); // default undefined
+  const queryClient = useQueryClient();
+  const router = useRouter();
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [email, setEmail] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingLocal, setIsLoadingLocal] = useState(false);
+  const tabUuidRef = useRef<string>();
+  if (tabUuidRef.current === undefined) {   // Only set the tab UUID once, persistent across refreshes
+    tabUuidRef.current = uuidv4();
+  }
 
-  const router = useRouter();
+  const {publicAuth} = useAuthBroadcastHandlers(tabUuidRef);
 
+  async function fetchAuth(): Promise<{ expiration?: Date; currentUser?: User } | null> {
+    // Initial load needs to see if other tabs already have fetched the data
+    const data = queryClient.getQueryData(["auth"]);
+
+    if (data === undefined) {
+      publicAuth?.postMessage({type: "AUTH_REQUEST", senderTabUUID: tabUuidRef.current});
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const updatedData = queryClient.getQueryData(["auth"]);
+      console.log(`Updated data: ${JSON.stringify(updatedData)}`);
+      if (updatedData !== undefined) {
+        return updatedData;
+      }
+    }
+
+    return check();
+  }
+
+  const {data} = useQuery({
+    queryKey: ["auth"],
+    queryFn: fetchAuth,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const expiration = data?.expiration ?? null;
+  const currentUser = data?.currentUser ?? null; // User - Logged in, null - Not logged in, undefined - Loading
+  // console.log(`Expiration: ${expiration}`);
+  // console.log(`Current User: ${JSON.stringify(currentUser)}`);
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
 
     try {
       const response = await login(username, password, rememberMe);
-      const {accessToken, currUser} = response[1] as { accessToken: string; currUser: User };
+      const {expiration, currentUser} = response ?? {};
 
-      setAccessToken(accessToken);
-      setCurrentUser(currUser);
-      router.push('/');
+      queryClient.setQueryData(["auth"], {expiration, currentUser});
+      publicAuth?.postMessage({type: "UPDATE", senderExpiration: expiration, senderCurrentUser: currentUser});
+
+      router.replace('/');
     } catch {
-      setAccessToken(null);
-      setCurrentUser(null);
+      queryClient.setQueryData(["auth"], {expiration: null, currentUser: null});
       router.replace('/login');
     }
   }
@@ -57,8 +92,9 @@ export default function AuthProvider({children}: PropsWithChildren) {
   async function handleLogout() {
     await logout();
 
-    setAccessToken(null);
-    setCurrentUser(null);
+    queryClient.setQueryData(["auth"], {expiration: null, currentUser: null});
+    publicAuth?.postMessage({type: "UPDATE", senderExpiration: null, senderCurrentUser: null});
+
     router.push('/');
   }
 
@@ -66,19 +102,19 @@ export default function AuthProvider({children}: PropsWithChildren) {
     e.preventDefault();
 
     try {
-      setIsLoading(true);
+      setIsLoadingLocal(true);
       const responseObject = await register(username, email, password, confirmPassword);
       console.log(responseObject);
-      setIsLoading(false);
+      setIsLoadingLocal(false);
     } catch {
-      setIsLoading(false);
+      setIsLoadingLocal(false);
     }
   }
 
   return (
     <AuthContext.Provider
       value={{
-        accessToken,
+        expiration,
         currentUser,
         handleRegister,
         handleLogin,
@@ -88,7 +124,7 @@ export default function AuthProvider({children}: PropsWithChildren) {
         setRememberMe,
         setEmail,
         setConfirmPassword,
-        isLoading
+        isLoadingLocal
       }}
     >
       <Header/>

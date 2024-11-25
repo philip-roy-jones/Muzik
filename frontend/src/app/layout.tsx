@@ -1,7 +1,7 @@
 import type {Metadata} from "next";
 import {geistSans, geistMono} from "@/src/components/fonts/fonts";
 import "./globals.css";
-import AuthProvider from "@/src/components/auth/AuthProvider";
+import QueryClientProviderWrapper from "@/src/components/shared/QueryClientProviderWrapper";
 
 export const metadata: Metadata = {
   title: "Muzik",
@@ -14,9 +14,9 @@ export default function RootLayout({children,}: Readonly<{ children: React.React
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider>
+        <QueryClientProviderWrapper>
           {children}
-        </AuthProvider>
+        </QueryClientProviderWrapper>
       </body>
     </html>
   );

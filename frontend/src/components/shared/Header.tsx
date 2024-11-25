@@ -13,7 +13,7 @@ function Header() {
 
       <div className={"inline w-full text-center"}>
         <ul className="">
-          <li><Link href={"#"}>Spotify</Link></li>
+          <li><Link href={"/debug"}>Debug</Link></li>
         </ul>
       </div>
 

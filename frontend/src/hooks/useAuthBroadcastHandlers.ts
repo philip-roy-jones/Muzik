@@ -1,50 +1,59 @@
 import {useBroadcastChannel} from "@/src/hooks/useBroadcastChannel";
+import {useQueryClient} from "@tanstack/react-query";
+import {User} from "@/src/types/user";
+
+type AuthData = {
+  expiration: Date;
+  currentUser: User | null;
+};
 
 export function useAuthBroadcastHandlers(
-  tabUUID: string,
-  username: string,
-  setUsername: (status: string) => void,
-  roles: string[],
-  setRoles: (roles: string[]) => void,
+  tabUuidRef: React.MutableRefObject<string | undefined>,
 ) {
+  const queryClient = useQueryClient();
+  const authData = queryClient.getQueryData<AuthData>(["auth"]);
+  const expiration = authData?.expiration;
+  const currentUser = authData?.currentUser;
 
   // Custom BroadcastChannel message handler with proper typing
   const handlePublicBroadcast = (event: MessageEvent) => {
-    const {type, username, tabUUID: requestingTabUUID, roles} = event.data as {
+    const {type, senderExpiration, senderTabUUID, senderCurrentUser} = event.data as {
       type: string;
-      username?: string;
-      tabUUID?: string;
-      roles?: string[];
+      senderTabUUID?: string;
+      senderExpiration?: Date;
+      senderCurrentUser?: User;
     };
-    console.log(`Received message: ${type}`);
-    if (type === "login" && username) {
-      setUsername(username);
-      if (roles) {
-        setRoles(roles);
-      }
-    } else if (type === "logout") {
-      setRoles([])
-      setUsername("");
-    } else if (type === "request_token" && username) {
-      const tempChannel = new BroadcastChannel(`private_channel_${requestingTabUUID}`);
-      tempChannel.postMessage({type: "login", username: username, roles: roles});
+    if (senderTabUUID === tabUuidRef.current) return;   // Ignore messages from self
+
+    if (type === "UPDATE") {      // Login or logout
+      console.log(senderExpiration, senderCurrentUser);
+      queryClient.setQueryData(["auth"], { expiration: senderExpiration, currentUser: senderCurrentUser });
+      // TODO: Clear any timers that try to refresh the token if logging out
+      //  Set timers to refresh the token if logging in
+    }
+    else if (type === "AUTH_REQUEST" && expiration instanceof Date) {
+      console.log(`Sending private message to private_auth_${senderTabUUID}`);
+      console.log(`My Expiration: ${expiration}`);
+      const tempChannel = new BroadcastChannel(`private_auth_${senderTabUUID}`);   // Temporary channel to send private message
+      tempChannel.postMessage({type: "AUTH_RESPONSE", senderExpiration:expiration, senderCurrentUser:currentUser});
       tempChannel.close();
     }
   };
 
   const handlePrivateBroadcast = (event: MessageEvent) => {
-    const {type, username, roles} = event.data as { type: string; username: string; roles: string[] };
-    console.log(`Received private message: ${type} with username: ${username}`);
-    if (type === "login") {
-      setRoles(roles);
-      setUsername(username);
+    const {type, senderExpiration , senderCurrentUser} = event.data as { type: string; senderExpiration: Date; senderCurrentUser: User };
+
+    if (type === "AUTH_RESPONSE") {
+      console.log("Received AUTH_RESPONSE");
+      queryClient.setQueryData(["auth"], {expiration: senderExpiration, currentUser:senderCurrentUser});
+      // TODO: Handle expiration separately from react query
     }
   }
 
-  const publicChannel = useBroadcastChannel("public_channel", handlePublicBroadcast);
+  const publicAuth = useBroadcastChannel("public_auth", handlePublicBroadcast);
 
   // Private channel only for receiving, so it has no usages
-  useBroadcastChannel(`private_channel_${tabUUID}`, handlePrivateBroadcast);
+  useBroadcastChannel(`private_auth_${tabUuidRef.current}`, handlePrivateBroadcast);
 
-  return { publicChannel };
+  return {publicAuth};
 }

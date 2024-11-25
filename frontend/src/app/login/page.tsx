@@ -1,7 +1,21 @@
+'use client';
+
 import LoginForm from "@/src/components/login/LoginForm";
 import Link from "next/link";
+import {useAuth} from "@/src/components/auth/AuthProvider";
+import {useRouter} from 'next/navigation';
+import {useLayoutEffect} from "react";
 
 export default function Login() {
+  const {expiration} = useAuth();
+  const router = useRouter();
+
+  useLayoutEffect(() => {
+    if (expiration && expiration > new Date()) {
+      router.push('/');
+    }
+  }, [expiration]);
+
   return (
     <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">

@@ -1,17 +1,15 @@
 'use client';
 
-import {useContext} from "react";
-import {AuthContext} from "@/src/contexts/AuthContext";
+import {useAuth} from "@/src/components/auth/AuthProvider";
 
 const Test = () => {
-  const authContext = useContext(AuthContext);
-  const expiryDate = authContext ? authContext.expiryDate : null;
-  const isLoggedIn = authContext ? authContext.isLoggedIn : false;
+  const {expiration, currentUser} = useAuth();
 
   return (
     <>
-      <p>{"Access Token Expiry: " + (expiryDate ? new Date(expiryDate).toString() : "No expiry date")}</p>
-      <p>{"isLoggedIn: " + (isLoggedIn ? "true" : "false")}</p>
+      <p>User signed in? {expiration ? "Yes" : "No"}</p>
+      <p>{"Expiration: " + expiration}</p>
+      <p>{"Current User: " + JSON.stringify(currentUser)}</p>
     </>
   );
 };

@@ -1,7 +1,7 @@
 import axios, {AxiosResponse} from "axios";
 import {User} from "@/src/types/user";
 
-export const register= async (username: string, email: string, password: string, confirmPassword: string) => {
+export const register = async (username: string, email: string, password: string, confirmPassword: string) => {
   const response = await axios.post("https://localhost:8443/public/register", {
     username,
     email,
@@ -13,6 +13,7 @@ export const register= async (username: string, email: string, password: string,
 }
 
 export const check = async () => {
+  console.log("check API request was made");
   const response = await axios.get("https://localhost:8443/public/check", {withCredentials: true});
   return handleResponse(response);
 }
@@ -42,26 +43,20 @@ export const logout = async (): Promise<void> => {
 }
 
 
-
-
-
-
-function handleResponse(response: AxiosResponse) {
-  if (response.status === 200) {
-    if (response.data.error) {
-      return [400, null];
-    } else {
-      const currUser: User = {
-        username: response.data.username,
-        roles: response.data.roles
-      }
-      const accessToken = response.data.accessToken;
-
-      return [200, {accessToken, currUser}] as const;
+function handleResponse(response: AxiosResponse): {expiration: Date; currentUser: User} | null {
+  if (response.status === 200 && !response.data.error) {
+    const currentUser: User = {
+      username: response.data.username,
+      roles: response.data.roles
     }
-  } else if (response.status === 400 || response.status === 401) {
-    throw new Error("Error: Bad Request");
-  } else {
-    throw new Error("Error: Unknown");
+    // This is an ISO 8601 string
+    const expiration = response.data.expiration;
+
+    // Convert to Date object
+    const expirationDate = new Date(expiration);
+
+    return {expiration: expirationDate, currentUser};
   }
+
+  return null;
 }
