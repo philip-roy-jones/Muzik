@@ -7,14 +7,14 @@ import {useRouter} from 'next/navigation';
 import {useLayoutEffect} from "react";
 
 export default function Login() {
-  const {expiration} = useAuth();
+  const {expirationState} = useAuth();
   const router = useRouter();
 
   useLayoutEffect(() => {
-    if (expiration && expiration > new Date()) {
+    if (expirationState && expirationState > new Date()) {
       router.push('/');
     }
-  }, [expiration]);
+  }, [expirationState]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">

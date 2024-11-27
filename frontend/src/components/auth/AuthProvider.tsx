@@ -1,7 +1,6 @@
 'use client';
 
-import React, {PropsWithChildren, useContext, useRef, useState} from "react";
-import {useQuery, useQueryClient} from "@tanstack/react-query";
+import React, {PropsWithChildren, useContext, useLayoutEffect, useRef, useState} from "react";
 import Header from "@/src/components/shared/Header";
 import {User} from "@/src/types/user";
 import {createContext} from "react";
@@ -11,8 +10,11 @@ import {v4 as uuidv4} from 'uuid';
 import {useAuthBroadcastHandlers} from "@/src/hooks/useAuthBroadcastHandlers";
 
 type AuthContextType = {
-  expiration?: Date | null;
-  currentUser?: User | null;
+  authSetByBroadcastRef?: React.MutableRefObject<boolean>;
+  expirationState?: Date | null;
+  setExpirationState: React.Dispatch<React.SetStateAction<Date | null | undefined>>;
+  currentUserState?: User | null;
+  setCurrentUserState: React.Dispatch<React.SetStateAction<User | null | undefined>>;
   handleRegister: (e: React.FormEvent) => Promise<void>;
   handleLogin: (e: React.FormEvent) => Promise<void>;
   handleLogout: () => Promise<void>;
@@ -22,56 +24,80 @@ type AuthContextType = {
   setEmail: React.Dispatch<React.SetStateAction<string>>;
   setConfirmPassword: React.Dispatch<React.SetStateAction<string>>;
   isLoadingLocal?: boolean;
+  tokenExpirationTimerRef?: React.MutableRefObject<NodeJS.Timeout | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export default function AuthProvider({children}: PropsWithChildren) {
-  const queryClient = useQueryClient();
   const router = useRouter();
+  const authSetByBroadcastRef = useRef(false);
+  const tokenExpirationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [expirationState, setExpirationState] = useState<Date | null | undefined>(undefined);
+  const [currentUserState, setCurrentUserState] = useState<User | null | undefined>(undefined);
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [email, setEmail] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoadingLocal, setIsLoadingLocal] = useState(false);
-  const tabUuidRef = useRef<string>();
-  if (tabUuidRef.current === undefined) {   // Only set the tab UUID once, persistent across refreshes
-    tabUuidRef.current = uuidv4();
-  }
+  const tabUuid = uuidv4();
 
-  const {publicAuth} = useAuthBroadcastHandlers(tabUuidRef);
+  const {publicAuth} = useAuthBroadcastHandlers(tabUuid, expirationState, setExpirationState, currentUserState, setCurrentUserState, authSetByBroadcastRef, setTokenExpirationTimer);
 
-  async function fetchAuth(): Promise<{ expiration?: Date; currentUser?: User } | null> {
+  // Fetch the auth data on initial load
+  useLayoutEffect(() => {
+    fetchAuth();
+  }, []);
+
+
+  async function fetchAuth() {
     // Initial load needs to see if other tabs already have fetched the data
-    const data = queryClient.getQueryData(["auth"]);
-
-    if (data === undefined) {
-      publicAuth?.postMessage({type: "AUTH_REQUEST", senderTabUUID: tabUuidRef.current});
+    if (currentUserState === undefined) {
+      publicAuth?.postMessage({type: "AUTH_REQUEST", senderTabUUID: tabUuid});
 
       await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const updatedData = queryClient.getQueryData(["auth"]);
-      console.log(`Updated data: ${JSON.stringify(updatedData)}`);
-      if (updatedData !== undefined) {
-        return updatedData;
+      if (authSetByBroadcastRef.current) {
+        return;
       }
     }
 
-    return check();
+    const fetchingKey = "isFetching";
+    // Prevent multiple fetches at the same time, the other tabs should return and wait for a broadcast
+    //  If the broadcast is never received, user is in logged out state
+    if (localStorage.getItem(fetchingKey)) {
+        return;
+    }
+
+    try{
+      localStorage.setItem(fetchingKey, "true");
+      const response = await check();
+      const {expiration, currentUser} = response ?? {expiration: null, currentUser: null};
+      setExpirationState(expiration);
+      setCurrentUserState(currentUser);
+
+      if (expiration && currentUser) {
+        setTokenExpirationTimer(expiration);
+      }
+    } finally {
+      localStorage.removeItem(fetchingKey);
+    }
   }
 
-  const {data} = useQuery({
-    queryKey: ["auth"],
-    queryFn: fetchAuth,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  function setTokenExpirationTimer(expiration: Date) {
+    // Clear the previous timer
+    if (tokenExpirationTimerRef.current) {
+      clearTimeout(tokenExpirationTimerRef.current);
+      tokenExpirationTimerRef.current = null;
+    }
 
-  const expiration = data?.expiration ?? null;
-  const currentUser = data?.currentUser ?? null; // User - Logged in, null - Not logged in, undefined - Loading
-  // console.log(`Expiration: ${expiration}`);
-  // console.log(`Current User: ${JSON.stringify(currentUser)}`);
+    if (expiration > new Date()) {
+      tokenExpirationTimerRef.current = setTimeout(() => {
+        fetchAuth();
+      }, expiration?.getTime() - Date.now() - 60000); // Renew the access token one minute before expiration
+    }
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
 
@@ -79,12 +105,16 @@ export default function AuthProvider({children}: PropsWithChildren) {
       const response = await login(username, password, rememberMe);
       const {expiration, currentUser} = response ?? {};
 
-      queryClient.setQueryData(["auth"], {expiration, currentUser});
+      setExpirationState(expiration);
+      setCurrentUserState(currentUser);
       publicAuth?.postMessage({type: "UPDATE", senderExpiration: expiration, senderCurrentUser: currentUser});
+
+      if (expiration && currentUser) {
+        setTokenExpirationTimer(expiration);
+      }
 
       router.replace('/');
     } catch {
-      queryClient.setQueryData(["auth"], {expiration: null, currentUser: null});
       router.replace('/login');
     }
   }
@@ -92,8 +122,14 @@ export default function AuthProvider({children}: PropsWithChildren) {
   async function handleLogout() {
     await logout();
 
-    queryClient.setQueryData(["auth"], {expiration: null, currentUser: null});
+    setExpirationState(null);
+    setCurrentUserState(null);
     publicAuth?.postMessage({type: "UPDATE", senderExpiration: null, senderCurrentUser: null});
+
+    if (tokenExpirationTimerRef.current) {
+      clearTimeout(tokenExpirationTimerRef.current);
+      tokenExpirationTimerRef.current = null;
+    }
 
     router.push('/');
   }
@@ -114,8 +150,11 @@ export default function AuthProvider({children}: PropsWithChildren) {
   return (
     <AuthContext.Provider
       value={{
-        expiration,
-        currentUser,
+        authSetByBroadcastRef,
+        expirationState,
+        setExpirationState,
+        currentUserState,
+        setCurrentUserState,
         handleRegister,
         handleLogin,
         handleLogout,
@@ -124,7 +163,8 @@ export default function AuthProvider({children}: PropsWithChildren) {
         setRememberMe,
         setEmail,
         setConfirmPassword,
-        isLoadingLocal
+        isLoadingLocal,
+        tokenExpirationTimerRef
       }}
     >
       <Header/>

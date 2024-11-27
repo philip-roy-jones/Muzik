@@ -12,6 +12,7 @@ export const register = async (username: string, email: string, password: string
   return handleResponse(response);
 }
 
+// If there is one minute or less left before the token expires, the backend will automatically renew the token
 export const check = async () => {
   console.log("check API request was made");
   const response = await axios.get("https://localhost:8443/public/check", {withCredentials: true});

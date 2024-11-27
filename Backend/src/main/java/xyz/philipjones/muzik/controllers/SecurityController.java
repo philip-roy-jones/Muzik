@@ -125,7 +125,8 @@ public class SecurityController {
                                          HttpServletResponse response) {
 
         boolean accessTokenValid = accessToken != null && serverAccessTokenService.validateAccessToken(accessToken);
-        if (accessTokenValid) {
+        // If access token is valid and has more than 1 minute left, return the user's roles and username
+        if (accessTokenValid && serverAccessTokenService.getClaimsFromToken(accessToken).getExpiration().getTime() - System.currentTimeMillis() > 60000) {
             Claims claims = serverAccessTokenService.getClaimsFromToken(accessToken);
             String username = claims.getSubject();
             List<String> roles = userService.getRolesByUsername(username).stream().map(UserRole::getName).collect(Collectors.toList());

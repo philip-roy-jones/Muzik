@@ -4,18 +4,18 @@ import {useRouter} from "next/navigation";
 import {useLayoutEffect} from "react";
 
 export default function Home() {
-  const {expiration} = useAuth();
+  const {expirationState} = useAuth();
   const router = useRouter();
 
   useLayoutEffect(() => {
-    if (!expiration || expiration < new Date()) {   // No expiration or expiration is in the past
+    if (!expirationState || expirationState < new Date()) {   // No expiration or expiration is in the past
       router.push('/login');
     }
-  }, [expiration, router]);
+  }, [expirationState, router]);
 
   return (
     <>
-      {expiration ? (
+      {expirationState ? (
         <div className="">
           <h1>Welcome to the Home Page</h1>
         </div>

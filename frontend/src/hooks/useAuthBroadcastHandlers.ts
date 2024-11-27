@@ -1,19 +1,15 @@
 import {useBroadcastChannel} from "@/src/hooks/useBroadcastChannel";
-import {useQueryClient} from "@tanstack/react-query";
 import {User} from "@/src/types/user";
 
-type AuthData = {
-  expiration: Date;
-  currentUser: User | null;
-};
-
 export function useAuthBroadcastHandlers(
-  tabUuidRef: React.MutableRefObject<string | undefined>,
+  tabUuid: string,
+  expirationState: Date | null | undefined,
+  setExpirationState: React.Dispatch<React.SetStateAction<Date | null | undefined>>,
+  currentUserState: User | null | undefined,
+  setCurrentUserState: React.Dispatch<React.SetStateAction<User | null | undefined>>,
+  authSetByBroadcastRef: React.MutableRefObject<boolean | undefined>,
+  setTokenExpirationTimer:(expiration: Date) => void
 ) {
-  const queryClient = useQueryClient();
-  const authData = queryClient.getQueryData<AuthData>(["auth"]);
-  const expiration = authData?.expiration;
-  const currentUser = authData?.currentUser;
 
   // Custom BroadcastChannel message handler with proper typing
   const handlePublicBroadcast = (event: MessageEvent) => {
@@ -23,37 +19,54 @@ export function useAuthBroadcastHandlers(
       senderExpiration?: Date;
       senderCurrentUser?: User;
     };
-    if (senderTabUUID === tabUuidRef.current) return;   // Ignore messages from self
 
     if (type === "UPDATE") {      // Login or logout
-      console.log(senderExpiration, senderCurrentUser);
-      queryClient.setQueryData(["auth"], { expiration: senderExpiration, currentUser: senderCurrentUser });
-      // TODO: Clear any timers that try to refresh the token if logging out
-      //  Set timers to refresh the token if logging in
-    }
-    else if (type === "AUTH_REQUEST" && expiration instanceof Date) {
+      if (senderExpiration && senderCurrentUser) {
+        setExpirationState(senderExpiration);
+        setCurrentUserState(senderCurrentUser);
+        setTokenExpirationTimer(senderExpiration);
+      } else {
+        setExpirationState(null);
+        setCurrentUserState(null);
+        setTokenExpirationTimer(new Date(new Date().getTime() - 10000));    // Set expiration to 10 seconds ago to clear timeout
+      }
+    } else if (type === "AUTH_REQUEST" && expirationState instanceof Date && currentUserState) {
       console.log(`Sending private message to private_auth_${senderTabUUID}`);
-      console.log(`My Expiration: ${expiration}`);
+
       const tempChannel = new BroadcastChannel(`private_auth_${senderTabUUID}`);   // Temporary channel to send private message
-      tempChannel.postMessage({type: "AUTH_RESPONSE", senderExpiration:expiration, senderCurrentUser:currentUser});
+      tempChannel.postMessage({
+        type: "AUTH_RESPONSE",
+        senderExpiration: expirationState,
+        senderCurrentUser: currentUserState
+      });
       tempChannel.close();
     }
   };
 
   const handlePrivateBroadcast = (event: MessageEvent) => {
-    const {type, senderExpiration , senderCurrentUser} = event.data as { type: string; senderExpiration: Date; senderCurrentUser: User };
+    const {type, senderExpiration, senderCurrentUser} = event.data as {
+      type: string;
+      senderExpiration: Date;
+      senderCurrentUser: User
+    };
 
     if (type === "AUTH_RESPONSE") {
       console.log("Received AUTH_RESPONSE");
-      queryClient.setQueryData(["auth"], {expiration: senderExpiration, currentUser:senderCurrentUser});
-      // TODO: Handle expiration separately from react query
+      setExpirationState(senderExpiration);
+      setCurrentUserState(senderCurrentUser);
+
+      if (authSetByBroadcastRef && authSetByBroadcastRef.current !== undefined) {
+        authSetByBroadcastRef.current = true;
+      }
+
+      setTokenExpirationTimer(senderExpiration);
     }
   }
 
   const publicAuth = useBroadcastChannel("public_auth", handlePublicBroadcast);
 
   // Private channel only for receiving, so it has no usages
-  useBroadcastChannel(`private_auth_${tabUuidRef.current}`, handlePrivateBroadcast);
+  useBroadcastChannel(`private_auth_${tabUuid}`, handlePrivateBroadcast);
 
   return {publicAuth};
 }
