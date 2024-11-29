@@ -1,6 +1,6 @@
 'use client';
 
-import React, {PropsWithChildren, useContext, useLayoutEffect, useRef, useState} from "react";
+import React, {PropsWithChildren, useContext, useEffect, useLayoutEffect, useRef, useState} from "react";
 import Header from "@/src/components/shared/Header";
 import {User} from "@/src/types/user";
 import {createContext} from "react";
@@ -10,7 +10,6 @@ import {v4 as uuidv4} from 'uuid';
 import {useAuthBroadcastHandlers} from "@/src/hooks/useAuthBroadcastHandlers";
 
 type AuthContextType = {
-  authSetByBroadcastRef?: React.MutableRefObject<boolean>;
   expirationState?: Date | null;
   setExpirationState: React.Dispatch<React.SetStateAction<Date | null | undefined>>;
   currentUserState?: User | null;
@@ -31,9 +30,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export default function AuthProvider({children}: PropsWithChildren) {
   const router = useRouter();
-  const authSetByBroadcastRef = useRef(false);
   const tokenExpirationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const expirationRef = useRef<Date | null | undefined>(null);
   const [expirationState, setExpirationState] = useState<Date | null | undefined>(undefined);
+  const currentUserRef = useRef<User | null | undefined>(null);
   const [currentUserState, setCurrentUserState] = useState<User | null | undefined>(undefined);
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -43,21 +43,25 @@ export default function AuthProvider({children}: PropsWithChildren) {
   const [isLoadingLocal, setIsLoadingLocal] = useState(false);
   const tabUuid = uuidv4();
 
-  const {publicAuth} = useAuthBroadcastHandlers(tabUuid, expirationState, setExpirationState, currentUserState, setCurrentUserState, authSetByBroadcastRef, setTokenExpirationTimer);
+  const {publicAuth} = useAuthBroadcastHandlers(tabUuid, expirationRef, setExpirationState, currentUserRef, setCurrentUserState, setTokenExpirationTimer);
 
   // Fetch the auth data on initial load
   useLayoutEffect(() => {
     fetchAuth();
   }, []);
 
+  // Update the ref when the state changes
+  useEffect(() => {
+    expirationRef.current = expirationState;
+    currentUserRef.current = currentUserState;
+  }, [expirationState, currentUserState]);
 
   async function fetchAuth() {
     // Initial load needs to see if other tabs already have fetched the data
     if (currentUserState === undefined) {
       publicAuth?.postMessage({type: "AUTH_REQUEST", senderTabUUID: tabUuid});
-
       await new Promise((resolve) => setTimeout(resolve, 100));
-      if (authSetByBroadcastRef.current) {
+      if (expirationRef.current !== undefined) {
         return;
       }
     }
@@ -140,9 +144,20 @@ export default function AuthProvider({children}: PropsWithChildren) {
     try {
       setIsLoadingLocal(true);
       const responseObject = await register(username, email, password, confirmPassword);
-      console.log(responseObject);
-      setIsLoadingLocal(false);
-    } catch {
+
+      if (responseObject) {
+        const {expiration, currentUser} = responseObject;
+        setExpirationState(expiration);
+        setCurrentUserState(currentUser);
+        publicAuth?.postMessage({type: "UPDATE", senderExpiration: expiration, senderCurrentUser: currentUser});
+
+        if (expiration && currentUser) {
+          setTokenExpirationTimer(expiration);
+        }
+
+        router.replace('/');
+      }
+    } finally {
       setIsLoadingLocal(false);
     }
   }
@@ -150,7 +165,6 @@ export default function AuthProvider({children}: PropsWithChildren) {
   return (
     <AuthContext.Provider
       value={{
-        authSetByBroadcastRef,
         expirationState,
         setExpirationState,
         currentUserState,

@@ -3,11 +3,10 @@ import {User} from "@/src/types/user";
 
 export function useAuthBroadcastHandlers(
   tabUuid: string,
-  expirationState: Date | null | undefined,
+  expirationRef: React.MutableRefObject<Date | null | undefined>,
   setExpirationState: React.Dispatch<React.SetStateAction<Date | null | undefined>>,
-  currentUserState: User | null | undefined,
+  currentUserRef: React.MutableRefObject<User | null | undefined>,
   setCurrentUserState: React.Dispatch<React.SetStateAction<User | null | undefined>>,
-  authSetByBroadcastRef: React.MutableRefObject<boolean | undefined>,
   setTokenExpirationTimer:(expiration: Date) => void
 ) {
 
@@ -30,14 +29,12 @@ export function useAuthBroadcastHandlers(
         setCurrentUserState(null);
         setTokenExpirationTimer(new Date(new Date().getTime() - 10000));    // Set expiration to 10 seconds ago to clear timeout
       }
-    } else if (type === "AUTH_REQUEST" && expirationState instanceof Date && currentUserState) {
-      console.log(`Sending private message to private_auth_${senderTabUUID}`);
-
+    } else if (type === "AUTH_REQUEST") {
       const tempChannel = new BroadcastChannel(`private_auth_${senderTabUUID}`);   // Temporary channel to send private message
       tempChannel.postMessage({
         type: "AUTH_RESPONSE",
-        senderExpiration: expirationState,
-        senderCurrentUser: currentUserState
+        senderExpiration: expirationRef.current,
+        senderCurrentUser: currentUserRef.current
       });
       tempChannel.close();
     }
@@ -51,13 +48,8 @@ export function useAuthBroadcastHandlers(
     };
 
     if (type === "AUTH_RESPONSE") {
-      console.log("Received AUTH_RESPONSE");
       setExpirationState(senderExpiration);
       setCurrentUserState(senderCurrentUser);
-
-      if (authSetByBroadcastRef && authSetByBroadcastRef.current !== undefined) {
-        authSetByBroadcastRef.current = true;
-      }
 
       setTokenExpirationTimer(senderExpiration);
     }

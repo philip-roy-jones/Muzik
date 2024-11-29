@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from "react";
+import {useLayoutEffect, useRef} from "react";
 
 type MessageHandler = (event: MessageEvent) => void;
 
@@ -9,7 +9,7 @@ export function useBroadcastChannel(channelName: string, onMessage: MessageHandl
   const channel = new BroadcastChannel(channelName);
   channelRef.current = channel;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Attach the onMessage event
     channel.onmessage = (event) => onMessage(event);
 
@@ -17,8 +17,9 @@ export function useBroadcastChannel(channelName: string, onMessage: MessageHandl
     return () => {
       channel.close();
       channelRef.current = null;
+      console.log("Clean up function called");
     };
-  }, [channelName, onMessage]);
+  }, []);
 
   return channelRef.current;
 }

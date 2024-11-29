@@ -6,11 +6,11 @@ import { useLayoutEffect } from 'react';
 
 export default function LoginForm() {
 
-  const {handleLogin, setUsername, setPassword, setRememberMe, expiration} = useAuth();
+  const {handleLogin, setUsername, setPassword, setRememberMe, expirationState} = useAuth();
 
   const router = useRouter();
   useLayoutEffect(() => {
-    if (expiration) {
+    if (expirationState) {
       router.push('/');
     }
   },[]);
