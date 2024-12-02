@@ -91,7 +91,7 @@ public class SecurityController {
                 errorResponse.put("error", "Cannot authenticate user");
                 return ResponseEntity.status(500).body(errorResponse);
             }
-
+            // TODO: Too many login attempts rate limiting
             String username = authentication.getName();
 
             List<String> roles = userService.getRolesByUsername(username).stream().map(UserRole::getName).collect(Collectors.toList());
@@ -192,6 +192,8 @@ public class SecurityController {
             put("message", "success");
         }});
     }
+
+    // TODO: Implement password reset route
 
     private HashMap<String, String> tokenRenewal(String refreshToken) {
 

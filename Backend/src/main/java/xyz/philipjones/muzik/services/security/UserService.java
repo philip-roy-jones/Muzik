@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-// TODO: refactor to use the service instead
 import xyz.philipjones.muzik.models.security.User;
 import xyz.philipjones.muzik.models.security.UserRole;
 import xyz.philipjones.muzik.repositories.UserRepository;
@@ -41,15 +40,15 @@ public class UserService {
     public boolean registerUser(User user) {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             return false; // Username already exists
+        } else if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+            return false; // Email already exists
         }
-        // TODO: check if email is already in use
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         assignDefaultRole(user);
 
         try {
             userRepository.save(user);
-            sendVerificationCode(user);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -61,7 +60,6 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByUsername(username);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            user.setVerified(true);
             userRepository.save(user);
             return true;
         }
@@ -110,17 +108,6 @@ public class UserService {
         UserRole defaultRole = userRolesRepository.findByName("ROLE_USER")
                 .orElseThrow(() -> new RuntimeException("Role not found"));
         user.setRoles(List.of(defaultRole));
-    }
-
-    private void sendVerificationCode(User user) {
-        String verificationCode = generateVerificationCode();
-        user.setVerificationCode(verificationCode);
-        user.setVerificationCodeExpiry(new Date(System.currentTimeMillis() + 24 * 60 * 60 * 1000)); // 24 hours expiry
-        userRepository.save(user);
-
-        String verificationUrl = frontendUrl + "/verify?code=" + verificationCode;
-        String emailText = "Please verify your email by clicking the following link: " + verificationUrl;
-        emailService.sendEmail(user.getEmail(), "Muzik Email Verification", emailText);
     }
 
     private String generateVerificationCode() {

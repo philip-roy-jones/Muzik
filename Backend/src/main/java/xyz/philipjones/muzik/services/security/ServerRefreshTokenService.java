@@ -136,4 +136,9 @@ public class ServerRefreshTokenService {
     public void setAccessExpiryDate(ServerRefreshToken refreshToken) {
         refreshToken.setAccessExpiryDate(new Date(System.currentTimeMillis() + serverAccessTokenService.getAccessTokenExpirationInMs()));
     }
+
+    public void deleteExpiredTokens() {
+        Date now = new Date();
+        serverRefreshTokenRepository.deleteByExpiryDateBefore(now);
+    }
 }

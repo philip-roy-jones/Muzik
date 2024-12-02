@@ -16,7 +16,6 @@ import xyz.philipjones.muzik.utils.JwtKeyProvider;
 
 import java.security.Key;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class ServerAccessTokenService {

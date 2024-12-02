@@ -33,15 +33,11 @@ public class User {
     private List<UserRole> roles;
 
     private HashMap<String, HashMap<String, Object>> connections;
-    private boolean verified;
-    private String verificationCode;
-    private Date verificationCodeExpiry;
 
     // Constructors, getters, setters
     public User() {
         // Default constructor
         this.connections = new HashMap<String, HashMap<String, Object>>();
-        this.verified = false;
     }
 
     public ObjectId getId() {
@@ -111,29 +107,5 @@ public class User {
 
     public void removeConnection(String key) {
         this.connections.remove(key);
-    }
-
-    public String getVerificationCode() {
-        return verificationCode;
-    }
-
-    public void setVerificationCode(String verificationCode) {
-        this.verificationCode = verificationCode;
-    }
-
-    public Date getVerificationCodeExpiry() {
-        return verificationCodeExpiry;
-    }
-
-    public void setVerificationCodeExpiry(Date verificationCodeExpiry) {
-        this.verificationCodeExpiry = verificationCodeExpiry;
-    }
-
-    public boolean isVerified() {
-        return verified;
-    }
-
-    public void setVerified(boolean verified) {
-        this.verified = verified;
     }
 }

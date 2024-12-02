@@ -1,21 +1,40 @@
 'use client'
 
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import Link from "next/link";
 import {useAuth} from "@/src/components/auth/AuthProvider";
 
 const ProfileMenu = () => {
   const [isVisible, setIsVisible] = useState(false);
 
-  const toggleMenu = () => {
-    setIsVisible(!isVisible);
+  const openMenu = () => {
+    setIsVisible(true);
   };
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (!(event.target as HTMLElement).closest('.profile-menu')) {
+      setIsVisible(false);
+    }
+  }
+
+
+  useEffect(() => {
+    if (isVisible) {
+      document.addEventListener('click', handleClickOutside);
+    } else {
+      document.removeEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isVisible]);
 
   const {handleLogout} = useAuth();
 
   return (
     <div className="relative">
-      <button onClick={toggleMenu} className="profile-button">
+      <button onClick={openMenu} className="profile-button">
         Profile
       </button>
       {isVisible && (
