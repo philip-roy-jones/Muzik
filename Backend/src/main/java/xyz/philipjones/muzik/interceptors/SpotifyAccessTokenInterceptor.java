@@ -22,7 +22,8 @@ public class SpotifyAccessTokenInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String path = request.getRequestURI();
-        if (path.equals("/api/v1/spotify/authorize") || path.equals("/api/v1/spotify/callback") || path.equals("/api/v1/spotify/remove-connection")) {
+        if (path.equals("/api/v1/spotify/authorize") || path.equals("/api/v1/spotify/callback") || path.equals("/api/v1/spotify/remove-connection")
+         || path.equals("/api/v1/spotify/verify")) {
             return true;
         }
 

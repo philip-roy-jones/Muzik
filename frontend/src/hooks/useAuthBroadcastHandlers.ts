@@ -19,7 +19,8 @@ export function useAuthBroadcastHandlers(
       senderCurrentUser?: User;
     };
 
-    if (type === "UPDATE") {      // Login or logout
+    if (type === "UPDATE") {      // Login or logout or general update
+      console.log("UPDATE message received");
       if (senderExpiration && senderCurrentUser) {
         setExpirationState(senderExpiration);
         setCurrentUserState(senderCurrentUser);

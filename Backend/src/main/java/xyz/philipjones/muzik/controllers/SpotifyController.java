@@ -2,7 +2,7 @@ package xyz.philipjones.muzik.controllers;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import xyz.philipjones.muzik.services.redis.RedisQueueService;
@@ -14,6 +14,8 @@ import xyz.philipjones.muzik.services.spotify.SpotifyRequestService;
 import xyz.philipjones.muzik.services.spotify.SpotifyTokenService;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,7 +23,11 @@ import java.util.Random;
 
 @RestController
 @RequestMapping("/api/v1/spotify")
+@CrossOrigin(origins = "${frontend.https.url}", allowCredentials = "true")
 public class SpotifyController {
+
+    @Value("${frontend.https.url}")
+    private String frontendUrl;
 
     private final SpotifyTokenService spotifyTokenService;
     private final SpotifyRequestService spotifyRequestService;
@@ -52,20 +58,27 @@ public class SpotifyController {
     public HashMap<String, String> getCode(@CookieValue("accessToken") String accessToken) throws NoSuchAlgorithmException {
         String authorizationUrl = spotifyTokenService.getAuthorizationUrl(accessToken);
         HashMap<String, String> result = new HashMap<>();
-        result.put("authorizationUrl", authorizationUrl);
+        result.put("authorizationUrl", authorizationUrl);   
         return result;
     }
 
     @GetMapping("/callback")
-    public HashMap<String, String> getToken(@RequestParam("code") String code, @RequestParam("state") String receivedState) throws IOException {
+    public void getToken(@RequestParam("code") String code, @RequestParam("state") String receivedState, HttpServletResponse response) throws IOException {
 
         try {
-            return spotifyTokenService.handleSpotifyCallback(code, receivedState);
+            spotifyTokenService.handleSpotifyCallback(code, receivedState);
+            response.sendRedirect(frontendUrl + "/spotify-connected");
         } catch (IllegalArgumentException e) {
-            HashMap<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return errorResponse;
+            response.sendRedirect( frontendUrl + "/error?message=" + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8));
         }
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<HashMap> verifyConnection(@CookieValue("accessToken") String accessToken) {
+        HashMap result = new HashMap();
+        result.put("connected?", spotifyTokenService.verifyConnection(accessToken));
+
+        return ResponseEntity.ok(result);
     }
 
     @DeleteMapping("/remove-connection")
@@ -121,7 +134,7 @@ public class SpotifyController {
 
     // ----------------------------------------Private Methods----------------------------------------
 
-    private HashMap makeRandomSearch (String username, String type) {
+    private HashMap makeRandomSearch(String username, String type) {
         int limit = 1;
         int offset = 0;
 
@@ -150,7 +163,7 @@ public class SpotifyController {
     }
 
     // Needs to be separate because of the way the Spotify API returns singles and compilations as albums
-    private HashMap makeRandomAlbumSearch (String username) {
+    private HashMap makeRandomAlbumSearch(String username) {
         Random random = new Random();
         ArrayList items = new ArrayList();
         final int limit = 50;

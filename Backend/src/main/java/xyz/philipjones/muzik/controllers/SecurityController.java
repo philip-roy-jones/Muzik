@@ -135,6 +135,7 @@ public class SecurityController {
                 put("roles", roles);
                 put("username", username);
                 put("expiration", expiration);
+                put("isSpotifyConnected", spotifyTokenService.verifyConnection(accessToken));
             }});
         }
 

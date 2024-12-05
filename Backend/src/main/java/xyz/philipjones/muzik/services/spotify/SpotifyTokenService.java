@@ -60,8 +60,10 @@ public class SpotifyTokenService {
     }
 
     public String getAuthorizationUrl(String serverAccessToken) throws NoSuchAlgorithmException {
-        String userId = userService.getUserByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject())
-                .map(user -> user.getId().toString()).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userService.getUserByUsername(serverAccessTokenService.getClaimsFromToken(serverAccessToken).getSubject())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String userId = user.getId().toString();
 
         String scope = "user-read-private user-read-email playlist-read-collaborative";
         String codeChallenge = PKCEUtil.generateCodeChallenge(codeVerifier);
@@ -101,7 +103,7 @@ public class SpotifyTokenService {
     }
 
     public boolean refreshAccessToken(String spotifyRefreshToken, User user) throws IOException {
-        try{
+        try {
             HashMap<String, Object> jsonResponse = tokenApiCall("refresh_token", "", spotifyRefreshToken, "", user);
             tokenApiResponseHandler(jsonResponse);
         } catch (Exception e) {
@@ -141,6 +143,16 @@ public class SpotifyTokenService {
 
     public void deleteSpotifyAccessToken(String username) {
         redisService.deleteKey("spotifyAccessToken:" + username);
+    }
+
+    public boolean verifyConnection(String accessToken) {
+        String username = serverAccessTokenService.getClaimsFromToken(accessToken).getSubject();
+        User user = userService.getUserByUsername(username).orElse(null);
+        if (user == null) {
+            return false;
+        }
+
+        return user.getConnections().containsKey("spotify");
     }
 
     //---------------------------------------------Privates---------------------------------------------
